@@ -1,4 +1,4 @@
-Temperatura (C),pH,Oxigeno Disuelto (mg/L),Turbidez (NTU),Conductividad (mS/cm),Clorofila (µg/L)
+Temperatura (°C),pH,Oxígeno Disuelto (mg/L),Turbidez (NTU),Conductividad (mS/cm),Clorofila (µg/L)
 23.5,8.8,14.43,100,0.743,1378.8437
 23.8,8.52,12.92,93,0.76,401.9528649
 23.9,8.38,14.15,26,0.768,187.2859526
