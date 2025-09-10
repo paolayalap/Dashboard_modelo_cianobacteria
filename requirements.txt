@@ -1,1 +1,13 @@
-streamlit>=1.26.0
+streamlit
+numpy
+pandas
+scikit-learn
+os
+matplotlib.pyplot
+sklearn.model_selection
+sklearn.preprocessing
+sklearn.metrics
+sklearn.svm
+sklearn.neighbors
+joblib
+tensorflow
