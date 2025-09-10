@@ -16,7 +16,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 # Config general
 # =========================================
 st.set_page_config(page_title="🧪 Dashboard cyanobacteria", layout="wide")
-st.title("🧪 Dashboard cyanobacteria")
+st.title("🧪 Dashboard cyanobacteria ♥")
 st.info("This app loads CSV data (comma-separated), cleans it, and trains a NN model to estimate chlorophyll-a.")
 
 # Tu CSV (separado por comas) en GitHub:
