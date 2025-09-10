@@ -1,4 +1,8 @@
 streamlit
-numpy
 pandas
+numpy
 scikit-learn
+matplotlib
+requests
+tensorflow-cpu
+
