@@ -6,29 +6,38 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+import joblib
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_predict
-from sklearn.metrics import mean_squared_error, mean_absolute_error, confusion_matrix, ConfusionMatrixDisplay, classification_report, precision_recall_fscore_support, roc_auc_score
+from sklearn.metrics import (mean_squared_error, mean_absolute_error, confusion_matrix,
+                             ConfusionMatrixDisplay, classification_report,
+                             precision_recall_fscore_support, roc_auc_score)
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 
-# =========================================
+# ==============================
 # Config general
-# =========================================
+# ==============================
 st.set_page_config(page_title="🧪 Dashboard cyanobacteria", layout="wide")
 st.title("🧪 Dashboard cyanobacteria")
-st.info("Carga CSV, limpieza, REGRESIÓN (NN) para clorofila y CLASIFICACIÓN (SVM/KNN) por umbral 40 µg/L.")
+st.info("Carga CSV (coma), limpieza, **Regresión (NN)** para clorofila y **Clasificación (SVM/KNN)** con umbral 40 µg/L.")
 
-# Tu CSV principal (coma) en GitHub:
-CSV_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/datos_lago.csv"
-UMBRAL = 40.0  # µg/L para clases
+# Tus URLs (en crudo, sin refs/heads)
+LAKE_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/datos_lago.csv"
+NEW_URL  = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/dataframe.csv"
+UMBRAL = 40.0
 RANDOM_STATE = 42
 
-# =========================================
+# Archivos locales (si los subes al repo)
+MODEL_PATH_KERAS = "modelo_clorofila.keras"  # opcional
+MODEL_PATH_H5    = "modelo_clorofila.h5"     # opcional
+SCALER_REG_PATH  = "scaler_clorofila.gz"     # opcional
+
+# ==============================
 # Utilidades
-# =========================================
+# ==============================
 def _strip_accents_lower(s: str) -> str:
     if not isinstance(s, str):
         s = str(s)
@@ -51,23 +60,47 @@ def read_csv_commas_only(url: str) -> pd.DataFrame:
     except Exception:
         return pd.read_csv(url, sep=",", encoding="latin-1", engine="python")
 
-# =========================================
-# Carga CSV
-# =========================================
+def try_load_regression_model():
+    """Carga modelo de regresión si existe en el repo; devuelve (model, scaler) o (None, None)."""
+    model = None
+    scaler = None
+    try:
+        if os.path.exists(SCALER_REG_PATH):
+            scaler = joblib.load(SCALER_REG_PATH)
+        if os.path.exists(MODEL_PATH_KERAS):
+            import tensorflow as tf  # import lazily
+            model = tf.keras.models.load_model(MODEL_PATH_KERAS)
+        elif os.path.exists(MODEL_PATH_H5):
+            import tensorflow as tf
+            try:
+                model = tf.keras.models.load_model(MODEL_PATH_H5)
+            except TypeError:
+                # cargar sin compilar y recompilar
+                model = tf.keras.models.load_model(MODEL_PATH_H5, compile=False)
+                model.compile(optimizer='adam',
+                              loss=tf.keras.losses.MeanSquaredError(),
+                              metrics=[tf.keras.metrics.MeanAbsoluteError()])
+    except Exception as e:
+        st.warning(f"No se pudo cargar modelo/scaler existentes: {e}")
+    return model, scaler
+
+# ==============================
+# Carga de datos
+# ==============================
 with st.expander("Datos IBAGUA (CSV)", expanded=True):
     try:
-        raw = read_csv_commas_only(CSV_URL)
-        st.success("CSV cargado ✅")
+        raw = read_csv_commas_only(LAKE_URL)
+        st.success("CSV del lago cargado ✅")
         st.dataframe(raw.head(30), use_container_width=True)
-        st.caption(f"Shape: {raw.shape[0]} filas × {raw.shape[1]} columnas")
+        st.caption(f"Shape lago: {raw.shape[0]} × {raw.shape[1]}")
     except Exception as e:
-        st.error("No se pudo leer el CSV. Verifica separador por comas y encabezados.")
+        st.error("No se pudo leer el CSV del lago. Revisa separador por comas y encabezados.")
         st.exception(e)
         st.stop()
 
-# =========================================
+# ==============================
 # Mapeo flexible de columnas
-# =========================================
+# ==============================
 ALIASES = {
     "Clorofila (µg/L)": ["Clorofila (µg/L)", "Clorofila (ug/L)", "clorofila", "chlorophyll"],
     "Temperatura (°C)": ["Temperatura (°C)", "Temperatura (C)", "Temperatura", "temperature", "temp"],
@@ -102,9 +135,9 @@ if len(set(col_map.values())) < len(col_map.values()):
     st.error("La misma columna fue asignada a más de un campo. Corrige los selectores.")
     st.stop()
 
-# =========================================
+# ==============================
 # Preprocesamiento común
-# =========================================
+# ==============================
 df = raw.copy()
 target_col = col_map["Clorofila (µg/L)"]
 if target_col in df.columns:
@@ -123,16 +156,23 @@ FEATURES = [
 X = df[FEATURES]
 y = df[target_col].copy().reset_index(drop=True)
 
-# =========================================
-# Tabs: Regresión (NN) y Clasificación (SVM/KNN)
-# =========================================
+# ==============================
+# Tabs
+# ==============================
 tab_reg, tab_clf, tab_new = st.tabs(["🔵 Regresión (NN)", "🟠 Clasificación (SVM/KNN)", "🟢 Nuevos 50 (CSV)"])
 
+# ---------- REGRESIÓN ----------
 with tab_reg:
     st.subheader("Entrenamiento de red neuronal (regresión)")
     st.caption("Arquitectura: 5→64→32→16→1, pérdida MSE, métrica MAE. Se entrena con log1p(y).")
 
-    scaler_reg = StandardScaler()
+    # si hay scaler/modelo en repo, precargarlos
+    pre_model, pre_scaler = try_load_regression_model()
+    if pre_scaler is not None:
+        scaler_reg = pre_scaler
+    else:
+        scaler_reg = StandardScaler()
+
     X_scaled = scaler_reg.fit_transform(X)
 
     col1, col2 = st.columns(2)
@@ -159,7 +199,13 @@ with tab_reg:
         model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_absolute_error'])
         return model
 
-    if st.button("🚀 Entrenar modelo de regresión"):
+    # Si hay modelo precargado y quieres usarlo sin entrenar:
+    if pre_model is not None:
+        st.success("Modelo de regresión precargado desde el repo ✅ (puedes re-entrenar si deseas)")
+        st.session_state["reg_model"] = pre_model
+        st.session_state["reg_scaler"] = scaler_reg
+
+    if st.button("🚀 Entrenar/Actualizar modelo de regresión"):
         with st.spinner("Importando TensorFlow y entrenando..."):
             try:
                 import tensorflow as tf  # noqa: F401
@@ -179,7 +225,6 @@ with tab_reg:
                 verbose=0
             )
 
-            # Guarda en sesión para usar en "Nuevos 50"
             st.session_state["reg_model"] = model
             st.session_state["reg_scaler"] = scaler_reg
 
@@ -206,23 +251,17 @@ with tab_reg:
             ax2.set_title('Clorofila: Real vs Predicho')
             st.pyplot(fig_scatter)
     else:
-        st.warning("Pulsa **Entrenar modelo de regresión** para ver métricas y gráficas.")
+        st.info("Puedes usar el modelo precargado (si existe) o entrenar uno nuevo.")
 
+# ---------- CLASIFICACIÓN ----------
 with tab_clf:
     st.subheader("Clasificación por umbral (40 µg/L)")
     y_cls = (y > UMBRAL).astype(int)
 
-    # Validación cruzada (5 folds) con pipelines que incluyen StandardScaler
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
-
-    svm_pipe = make_pipeline(
-        StandardScaler(),
-        SVC(kernel='rbf', probability=True, class_weight='balanced', C=1.0, gamma='scale', random_state=RANDOM_STATE)
-    )
-    knn_pipe = make_pipeline(
-        StandardScaler(),
-        KNeighborsClassifier(n_neighbors=7, weights='distance')
-    )
+    svm_pipe = make_pipeline(StandardScaler(), SVC(kernel='rbf', probability=True, class_weight='balanced',
+                                                  C=1.0, gamma='scale', random_state=RANDOM_STATE))
+    knn_pipe = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights='distance'))
 
     if st.button("📊 Validación cruzada SVM/KNN"):
         with st.spinner("Computando CV..."):
@@ -245,7 +284,6 @@ with tab_clf:
             ax2.set_title('KNN (CV) - Matriz de confusión')
             st.pyplot(fig2)
 
-    # Hold-out como en la NN
     X_tr, X_te, y_tr, y_te = train_test_split(X.values, y_cls.values, test_size=0.4, random_state=RANDOM_STATE, stratify=y_cls.values)
     scaler_clf = StandardScaler().fit(X_tr)
     X_tr_s = scaler_clf.transform(X_tr)
@@ -274,27 +312,35 @@ with tab_clf:
     eval_and_plot(svm, X_te_s, y_te, "SVM")
     eval_and_plot(knn, X_te_s, y_te, "KNN")
 
-    # Guarda en sesión para usar en "Nuevos 50"
     st.session_state["clf_scaler"] = scaler_clf
     st.session_state["clf_svm"] = svm
     st.session_state["clf_knn"] = knn
 
+# ---------- NUEVOS 50 ----------
 with tab_new:
-    st.subheader("Nuevos 50 registros (CSV) – predicción y clasificación")
-    st.caption("Sube un CSV con las mismas columnas. Se usarán el **modelo de regresión** y **clasificadores** entrenados en esta sesión si existen.")
+    st.subheader("Nuevos 50 registros (CSV)")
+    st.caption("Se usa NEW_URL por defecto; también puedes subir un CSV propio.")
 
-    file = st.file_uploader("Sube CSV separado por comas", type=["csv"])
-    if file is not None:
+    use_repo_new = st.checkbox("Usar CSV del repo (NEW_URL)", value=True)
+    nuevo = None
+    if use_repo_new:
         try:
-            nuevo = pd.read_csv(file, sep=",", encoding="utf-8")
-        except Exception:
-            file.seek(0)
-            nuevo = pd.read_csv(file, sep=",", encoding="latin-1")
+            nuevo = read_csv_commas_only(NEW_URL)
+            st.success("CSV nuevo cargado desde el repo ✅")
+        except Exception as e:
+            st.error("No se pudo leer el NEW_URL.")
+            st.exception(e)
+    else:
+        file = st.file_uploader("Sube CSV separado por comas", type=["csv"])
+        if file is not None:
+            try:
+                nuevo = pd.read_csv(file, sep=",", encoding="utf-8")
+            except Exception:
+                file.seek(0)
+                nuevo = pd.read_csv(file, sep=",", encoding="latin-1")
 
+    if nuevo is not None:
         # mapear columnas del nuevo dataset usando el mismo col_map
-        faltan = [c for c in [*FEATURES, target_col] if c not in nuevo.columns]
-        if faltan:
-            st.warning(f"El CSV nuevo no tiene exactamente las columnas mapeadas: {faltan}. Se intentará coercionar sólo FEATURES.")
         for c in FEATURES:
             nuevo[c] = pd.to_numeric(nuevo.get(c, np.nan), errors="coerce")
 
@@ -302,15 +348,30 @@ with tab_new:
         st.write(f"Filas válidas entre los primeros 50: **{len(df50)}**")
         st.dataframe(df50.head(10), use_container_width=True)
 
-        # --- Predicción de clorofila usando el modelo de regresión si está disponible ---
-        if "reg_model" in st.session_state and "reg_scaler" in st.session_state:
-            X50_reg_scaled = st.session_state["reg_scaler"].transform(df50.values)
-            y50_log = st.session_state["reg_model"].predict(X50_reg_scaled)
+        # Predicción de clorofila (modelo de la sesión o del repo)
+        reg_model = st.session_state.get("reg_model", None)
+        reg_scaler = st.session_state.get("reg_scaler", None)
+
+        if reg_model is None or reg_scaler is None:
+            # intentar cargar desde archivos del repo
+            m, s = try_load_regression_model()
+            if m is not None and s is not None:
+                reg_model, reg_scaler = m, s
+
+        out = df50.copy()
+
+        if reg_model is not None and reg_scaler is not None:
+            X50_reg_scaled = reg_scaler.transform(df50.values)
+            try:
+                y50_log = reg_model.predict(X50_reg_scaled)
+            except Exception:
+                # si el modelo fue entrenado sin log1p, igualmente devolvemos
+                y50_log = reg_model.predict(X50_reg_scaled)
             chl50 = np.expm1(y50_log).ravel()
             chl50 = np.clip(chl50, 0, None)
-            st.write("**Clorofila predicha (µg/L) para los primeros 50:**")
-            st.dataframe(pd.DataFrame({"Clorofila predicha (µg/L)": chl50}).head(10), use_container_width=True)
+            out["Clorofila predicha (µg/L)"] = chl50
 
+            # gráficas rápidas
             figA, axA = plt.subplots()
             axA.plot(range(len(chl50)), chl50)
             axA.set_xlabel('Índice (0..N)'); axA.set_ylabel('Clorofila predicha (µg/L)')
@@ -324,47 +385,34 @@ with tab_new:
             st.pyplot(figB)
 
             cls_from_reg = (chl50 > UMBRAL).astype(int)
+            out["Clase por regresión (>40)"] = np.where(cls_from_reg==1, "Alto (>40)", "Bajo (<40)")
         else:
-            st.info("Entrena primero el **modelo de regresión** en la pestaña azul para obtener clorofila predicha.")
-            chl50 = None
-            cls_from_reg = None
+            st.info("Entrena o provee un modelo de regresión para obtener clorofila predicha.")
 
-        # --- Clasificación SVM/KNN si están en sesión ---
+        # Clasificación con SVM/KNN si entrenados en esta sesión
         if "clf_scaler" in st.session_state and "clf_svm" in st.session_state and "clf_knn" in st.session_state:
             X50_clf_scaled = st.session_state["clf_scaler"].transform(df50.values)
             cls50_svm = st.session_state["clf_svm"].predict(X50_clf_scaled)
             cls50_knn = st.session_state["clf_knn"].predict(X50_clf_scaled)
-
-            out = df50.copy()
-            if chl50 is not None:
-                out["Clorofila predicha (µg/L)"] = chl50
             out["Clase SVM"] = np.where(cls50_svm==1, "Alto (>40)", "Bajo (<40)")
             out["Clase KNN"] = np.where(cls50_knn==1, "Alto (>40)", "Bajo (<40)")
-            if cls_from_reg is not None:
-                out["Clase por regresión (>40)"] = np.where(cls_from_reg==1, "Alto (>40)", "Bajo (<40)")
-
-            st.subheader("Resultados (primeros 50)")
-            st.dataframe(out.head(50), use_container_width=True)
-
-            # Conteo por método
-            def conteo(etqs):
-                if etqs is None: return {}
-                uniq, cnt = np.unique(etqs, return_counts=True)
-                return dict(zip(uniq, cnt))
-
-            counts = {
-                "SVM": conteo(cls50_svm),
-                "KNN": conteo(cls50_knn),
-                "Regresión": conteo(cls_from_reg) if cls_from_reg is not None else {}
-            }
-            st.write("**Conteos de clase (0=Bajo, 1=Alto):**", counts)
-
-            # Dispersión ejemplo vs clorofila predicha si existe
-            if chl50 is not None:
-                figD, axD = plt.subplots()
-                axD.scatter(out[FEATURES[3]], out["Clorofila predicha (µg/L)"], alpha=0.75)  # Turbidez vs. clorofila
-                axD.set_xlabel(FEATURES[3]); axD.set_ylabel("Clorofila predicha (µg/L)")
-                axD.set_title(f'{FEATURES[3]} vs Clorofila predicha (primeros 50)')
-                st.pyplot(figD)
         else:
-            st.info("Entrena primero los **clasificadores** en la pestaña naranja.")
+            st.info("Entrena primero los clasificadores en la pestaña naranja para etiquetar SVM/KNN.")
+
+        # Mostrar y permitir descarga
+        st.subheader("Resultados (primeros 50)")
+        st.dataframe(out, use_container_width=True)
+
+        csv_bytes = out.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            label="💾 Descargar resultados (CSV)",
+            data=csv_bytes,
+            file_name="predicciones_dataframe_clf.csv",
+            mime="text/csv"
+        )
+
+# ==============================
+# Requisitos sugeridos
+# ==============================
+st.caption("requirements.txt: streamlit, pandas, numpy, scikit-learn, matplotlib, requests, joblib, tensorflow-cpu")
+
