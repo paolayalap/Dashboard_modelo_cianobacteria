@@ -87,7 +87,7 @@ def try_load_regression_model():
 # ==============================
 # Carga de datos
 # ==============================
-with st.expander("Datos IBAGUA (CSV)", expanded=True):
+with st.expander("Datos de IBAGUA (CSV)", expanded=True):
     try:
         raw = read_csv_commas_only(LAKE_URL)
         st.success("CSV del lago cargado ✅")
@@ -95,6 +95,17 @@ with st.expander("Datos IBAGUA (CSV)", expanded=True):
         st.caption(f"Shape lago: {raw.shape[0]} × {raw.shape[1]}")
     except Exception as e:
         st.error("No se pudo leer el CSV del lago. Revisa separador por comas y encabezados.")
+        st.exception(e)
+        st.stop()
+
+with st.expander("Datos del Estanque del Jardín Botánico de la UVG (CSV)", expanded=True):
+    try:
+        raw = read_csv_commas_only(NEW_URL)
+        st.success("CSV del estanque cargado ✅")
+        st.dataframe(raw.head(30), use_container_width=True)
+        st.caption(f"Shape estanque: {raw.shape[0]} × {raw.shape[1]}")
+    except Exception as e:
+        st.error("No se pudo leer el CSV del estanque. Revisa separador por comas y encabezados.")
         st.exception(e)
         st.stop()
 
