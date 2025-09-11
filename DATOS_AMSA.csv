@@ -1,4 +1,4 @@
-Fecha,Hora,Sitio,pH,Temperatura (°C),Conductividad (µS/cm),O2 (mg/L),Turbidez (NTU),Clorofila (µg/L)
+Fecha,Hora,Sitio,pH,Temperatura (°C),Conductividad (µS/cm),Oxígeno Disuelto(mg/L),Turbidez (NTU),Clorofila (µg/L)
 25-ene-17,10:15,Este centro,8.80,23.5,743,14.43,100,"1,378.8437"
 25-ene-17,11:15,Baha Playa de Oro,8.52,23.8,760,12.92,93,401.9529
 25-ene-17,12:20,Oeste centro,8.38,23.9,768,14.15,26,187.2860
