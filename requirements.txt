@@ -4,5 +4,6 @@ numpy
 scikit-learn
 matplotlib
 requests
+joblib
 tensorflow-cpu
 
