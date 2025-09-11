@@ -17,7 +17,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 # =========================================
 st.set_page_config(page_title="🧪 Dashboard cyanobacteria", layout="wide")
 st.title("🧪 Dashboard cyanobacteria ")
-st.info("This app loads CSV data (comma-separated), cleans it, and trains a NN model to estimate chlorophyll-a.")
+st.info("This app loads CSV data, cleans it, and trains a NN model to estimate chlorophyll-a.")
 
 # Tu CSV (separado por comas) en GitHub:
 CSV_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/datos_lago.csv"
@@ -60,7 +60,7 @@ def read_csv_commas_only(url: str) -> pd.DataFrame:
 with st.expander("Data IBAGUA (CSV)", expanded=True):
     try:
         raw = read_csv_commas_only(CSV_URL)
-        st.success("CSV cargado ✅ (coma-separado)")
+        st.success("CSV cargado ✅")
         st.dataframe(raw.head(30), use_container_width=True)
         st.caption(f"Shape: {raw.shape[0]} filas × {raw.shape[1]} columnas")
     except Exception as e:
