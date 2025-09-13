@@ -59,7 +59,7 @@ from matplotlib.patches import Rectangle
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
 st.info("🔖 Build check: v1.0.3")
-st.info("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
+#st.info("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
 
 
 # ===========================
@@ -95,7 +95,7 @@ RUN_CONFUSION_FROM_REGRESSION = st.sidebar.checkbox("Matriz de confusión desde 
 RUN_RF = st.sidebar.checkbox("Baseline: RandomForestRegressor", value=True)
 RUN_KFOLD = st.sidebar.checkbox("KFold CV (NN regresión)", value=True)
 RUN_CLF = st.sidebar.checkbox("Clasificación directa (SVM/KNN, 4 clases)", value=True)
-TRY_NEW_DATA = st.sidebar.toggle("🧪 Probar modelo con datos nuevos", value=True)
+TRY_NEW_DATA = st.sidebar.checkbox("🧪 Probar modelo con datos nuevos", value=True)
 
 st.sidebar.markdown("---")
 USE_ROBUST_SCALER = st.sidebar.selectbox("Scaler NN", ["RobustScaler", "StandardScaler"]) == "RobustScaler"
