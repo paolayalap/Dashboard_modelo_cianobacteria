@@ -30,15 +30,10 @@ from keras.losses import Huber
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from matplotlib.patches import Rectangle
 
-# ---------------------------
-# Config de página y título
-# ---------------------------
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
 
-# ---------------------------
-# URLs de datos en GitHub
-# ---------------------------
+# URLs de datos (GitHub raw)
 EXCEL_ORIG_URL   = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/DATOS_AMSA.csv"
 CSV_LIMPIO_URL   = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/datos_amsa.csv"
 CSV_FILTRADO_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/datos_filtrados.csv"
@@ -50,31 +45,24 @@ SCALER_PATH = "scaler_clorofila.pkl"
 PRED_REG_CSV = "predicciones_clorofila_LOCAL.csv"
 PRED_CLASES_DESDE_REG = "predicciones_clases_desde_regresion_LOCAL.csv"
 
-# ---------------------------
 # Columnas esperadas
-# ---------------------------
 columnas_entrada = [
     "pH",
     "Temperatura (°C)",
-    "Conductividad (µS/cm)",   # µ (U+00B5)
+    "Conductividad (µS/cm)",
     "Oxígeno Disuelto (mg/L)",
     "Turbidez (NTU)"
 ]
-columna_salida = "Clorofila (μg/L)"     # μ (U+03BC)
+columna_salida = "Clorofila (μg/L)"
 
-# ---------------------------
 # Normalización de nombres
-# ---------------------------
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Normaliza nombres de columnas a los esperados por la app."""
     mapping = {
         "ph": "pH",
-
         "temperatura": "Temperatura (°C)",
         "temperatura (c)": "Temperatura (°C)",
         "temp (°c)": "Temperatura (°C)",
         "temp": "Temperatura (°C)",
-
         "conductividad": "Conductividad (µS/cm)",
         "conductividad (us/cm)": "Conductividad (µS/cm)",
         "conductividad (μs/cm)": "Conductividad (µS/cm)",
@@ -82,18 +70,15 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         "ec (us/cm)": "Conductividad (µS/cm)",
         "ec (µs/cm)": "Conductividad (µS/cm)",
         "ec": "Conductividad (µS/cm)",
-
         "oxígeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
         "oxigeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
         "do (mg/l)": "Oxígeno Disuelto (mg/L)",
         "oxígeno disuelto": "Oxígeno Disuelto (mg/L)",
         "oxigeno disuelto": "Oxígeno Disuelto (mg/L)",
-
         "turbidez (ntu)": "Turbidez (NTU)",
         "turbiedad (ntu)": "Turbidez (NTU)",
         "turbidez": "Turbidez (NTU)",
         "turbiedad": "Turbidez (NTU)",
-
         "clorofila (µg/l)": "Clorofila (μg/L)",
         "clorofila (μg/l)": "Clorofila (μg/L)",
         "chlorophyll a (µg/l)": "Clorofila (μg/L)",
@@ -106,7 +91,7 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         ren[c] = mapping.get(key, c)
     return df.rename(columns=ren)
 
-# ======= Sidebar: Banderas =======
+# Sidebar
 st.sidebar.header("⚙️ Controles")
 RUN_TRAIN_NN = st.sidebar.checkbox("Entrenar red neuronal (regresión)", value=True)
 RUN_CONFUSION_FROM_REGRESSION = st.sidebar.checkbox("Matriz de confusión desde regresión (umbrales)", value=True)
@@ -119,9 +104,7 @@ USE_ROBUST_SCALER = st.sidebar.selectbox("Scaler NN", ["RobustScaler", "Standard
 Y_TRANSFORM = st.sidebar.selectbox("Transformación de y", ["log1p", "None"])
 LOSS = st.sidebar.selectbox("Función de pérdida NN", ["huber", "mse"])
 
-# ---------------------------
-# Carga de datos (cache)
-# ---------------------------
+# Carga datos
 @st.cache_data(show_spinner=True)
 def cargar_csv(url: str) -> pd.DataFrame:
     return pd.read_csv(url)
@@ -132,13 +115,10 @@ with st.expander("📥 Fuentes de datos (URLs)", expanded=False):
     st.write("**CSV_FILTRADO_URL**:", CSV_FILTRADO_URL)
     st.write("**PRED_REG_CSV_URL**:", PRED_REG_CSV_URL)
 
-# Dataset principal
 df = cargar_csv(CSV_LIMPIO_URL)
 df = normalize_columns(df)
 
-# ---------------------------
-# Limpieza básica
-# ---------------------------
+# Limpieza
 faltantes = [c for c in columnas_entrada + [columna_salida] if c not in df.columns]
 if faltantes:
     st.error(f"Faltan columnas en el dataset principal: {faltantes}")
@@ -146,31 +126,18 @@ if faltantes:
 
 for col in columnas_entrada + [columna_salida]:
     df[col] = pd.to_numeric(df[col], errors="coerce")
-
 for col in columnas_entrada:
     lo, hi = df[col].quantile(0.01), df[col].quantile(0.99)
     df[col] = df[col].clip(lo, hi)
-
 df = df.dropna(subset=columnas_entrada + [columna_salida]).reset_index(drop=True)
 
-# ---------------------------
-# Split base compartido
-# ---------------------------
+# Split
 X = df[columnas_entrada].values
 y_real = df[columna_salida].values
+y_trans = np.log1p(y_real) if Y_TRANSFORM == "log1p" else y_real.copy()
+X_train, X_test, y_train_t, y_test_t = train_test_split(X, y_trans, test_size=0.20, random_state=42)
 
-if Y_TRANSFORM == "log1p":
-    y_trans = np.log1p(y_real)
-else:
-    y_trans = y_real.copy()
-
-X_train, X_test, y_train_t, y_test_t = train_test_split(
-    X, y_trans, test_size=0.20, random_state=42
-)
-
-# ---------------------------
-# Utilidad: Confusion Matrix
-# ---------------------------
+# Utilidad: matriz de confusión bonita
 def plot_confusion_matrix_pretty(cm, labels, title):
     fig, ax = plt.subplots(figsize=(8, 7))
     n = len(labels)
@@ -190,9 +157,7 @@ def plot_confusion_matrix_pretty(cm, labels, title):
     fig.tight_layout()
     return fig
 
-# ---------------------------
 # Tabs
-# ---------------------------
 tabs = st.tabs([
     "📈 Regresión NN",
     "🧩 Matriz desde Regresión",
@@ -202,9 +167,7 @@ tabs = st.tabs([
     "🔮 Predicción en CSV externo"
 ])
 
-# ---------------------------
-# 1) REGRESIÓN NN
-# ---------------------------
+# 1) Regresión NN
 with tabs[0]:
     st.subheader("📈 Regresión con Red Neuronal")
     if RUN_TRAIN_NN:
@@ -229,14 +192,8 @@ with tabs[0]:
         reduce_lr = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=1)
 
         with st.spinner("Entrenando la red neuronal..."):
-            hist = model.fit(
-                X_train_s, y_train_t,
-                validation_split=0.20,
-                epochs=600,
-                batch_size=32,
-                callbacks=[early_stop, reduce_lr],
-                verbose=0
-            )
+            hist = model.fit(X_train_s, y_train_t, validation_split=0.20,
+                             epochs=600, batch_size=32, callbacks=[early_stop, reduce_lr], verbose=0)
 
         fig_loss, ax = plt.subplots()
         ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
@@ -248,15 +205,8 @@ with tabs[0]:
 
         y_pred_train_t = model.predict(X_train_s, verbose=0).ravel()
         y_pred_test_t  = model.predict(X_test_s,  verbose=0).ravel()
-
-        if Y_TRANSFORM == "log1p":
-            y_true_test = np.expm1(y_test_t)
-            y_pred_test = np.expm1(y_pred_test_t)
-        else:
-            y_true_test = y_test_t
-            y_pred_test = y_pred_test_t
-
-        # Evita valores negativos por ruido numérico antes de clasificar
+        y_true_test = np.expm1(y_test_t) if Y_TRANSFORM == "log1p" else y_test_t
+        y_pred_test = np.expm1(y_pred_test_t) if Y_TRANSFORM == "log1p" else y_pred_test_t
         y_pred_test = np.clip(y_pred_test, 0.0, None)
 
         mse  = mean_squared_error(y_true_test, y_pred_test)
@@ -264,11 +214,11 @@ with tabs[0]:
         mae  = mean_absolute_error(y_true_test, y_pred_test)
         r2   = r2_score(y_true_test, y_pred_test)
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("MSE (test)", f"{mse:.3f}")
-        col2.metric("RMSE (test)", f"{rmse:.3f}")
-        col3.metric("MAE (test)", f"{mae:.3f}")
-        col4.metric("R² (test)", f"{r2:.3f}")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("MSE (test)", f"{mse:.3f}")
+        c2.metric("RMSE (test)", f"{rmse:.3f}")
+        c3.metric("MAE (test)", f"{mae:.3f}")
+        c4.metric("R² (test)", f"{r2:.3f}")
 
         model.save(MODEL_PATH)
         with open(MODEL_PATH, "rb") as f:
@@ -283,29 +233,20 @@ with tabs[0]:
         })
         st.download_button("⬇️ Descargar predicciones (CSV)",
                            data=df_preds.to_csv(index=False).encode("utf-8"),
-                           file_name=PRED_REG_CSV,
-                           mime="text/csv")
+                           file_name=PRED_REG_CSV, mime="text/csv")
     else:
         st.info("Activa **Entrenar red neuronal (regresión)** en el panel lateral para ver esta sección.")
 
-# ---------------------------
-# 2) MATRIZ DESDE REGRESIÓN
-# ---------------------------
+# 2) Matriz desde Regresión
 with tabs[1]:
     st.subheader("🧩 Matriz de confusión (Regresión → Rangos)")
     if RUN_TRAIN_NN and 'model' in locals():
         bins = [0, 2, 7, 40, np.inf]
         labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
 
-        # Convertir directamente a Series de strings (NO usar .values)
-        y_true_clf_reg = pd.Series(
-            pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False),
-            dtype="string"
-        )
-        y_pred_clf_reg = pd.Series(
-            pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False),
-            dtype="string"
-        )
+        # Series string (NO usar .values)
+        y_true_clf_reg = pd.Series(pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False), dtype="string")
+        y_pred_clf_reg = pd.Series(pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False), dtype="string")
 
         cm_reg = confusion_matrix(y_true_clf_reg, y_pred_clf_reg, labels=labels_bins)
         fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
@@ -318,29 +259,23 @@ with tabs[1]:
         )
         st.code(rep_reg)
 
-        # CSV de clases — SIN streamlit_app.py
         df_cls = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
-            "Clase_real": y_true_clf_reg.streamlit_app.py,
+            "Clase_real": y_true_clf_reg,
             "Clorofila_predicha (µg/L)": y_pred_test,
             "Clase_predicha": y_pred_clf_reg,
         })
         st.download_button("⬇️ Descargar clases desde regresión (CSV)",
                            data=df_cls.to_csv(index=False).encode("utf-8"),
-                           file_name=PRED_CLASES_DESDE_REG,
-                           mime="text/csv")
+                           file_name=PRED_CLASES_DESDE_REG, mime="text/csv")
     else:
         st.info("Entrena la **Regresión NN** para habilitar esta pestaña.")
 
-# ---------------------------
-# 3) RANDOM FOREST (BASELINE)
-# ---------------------------
+# 3) Random Forest (baseline)
 with tabs[2]:
     st.subheader("🌲 Baseline: RandomForestRegressor")
     if RUN_RF:
-        X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(
-            X, y_real, test_size=0.20, random_state=42
-        )
+        X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(X, y_real, test_size=0.20, random_state=42)
         rf = RandomForestRegressor(n_estimators=600, random_state=42, n_jobs=-1)
         with st.spinner("Entrenando RandomForest..."):
             rf.fit(X_train_rf, y_train_rf)
@@ -368,14 +303,11 @@ with tabs[2]:
     else:
         st.info("Activa **RandomForestRegressor** para visualizar.")
 
-# ---------------------------
-# 4) K-FOLD CV (NN REGRESIÓN)
-# ---------------------------
+# 4) K-Fold CV (NN)
 with tabs[3]:
     st.subheader("🔁 Validación Cruzada (K=5) para NN de Regresión")
     if RUN_KFOLD:
-        X_raw = X.copy()
-        y_raw = y_real.copy()
+        X_raw = X.copy(); y_raw = y_real.copy()
 
         def nn_builder(input_dim):
             m = keras.Sequential([
@@ -402,8 +334,7 @@ with tabs[3]:
                 y_tr_t = y_tr.copy();   y_te_t = y_te.copy()
 
             scaler_cv = RobustScaler() if USE_ROBUST_SCALER else StandardScaler()
-            X_tr_s = scaler_cv.fit_transform(X_tr)
-            X_te_s = scaler_cv.transform(X_te)
+            X_tr_s = scaler_cv.fit_transform(X_tr); X_te_s = scaler_cv.transform(X_te)
 
             model_cv = nn_builder(X_tr_s.shape[1])
             es = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
@@ -429,27 +360,22 @@ with tabs[3]:
                  f"R² {df_cv['R2'].mean():.3f} ± {df_cv['R2'].std():.3f}")
         st.download_button("⬇️ Descargar métricas K-Fold (CSV)",
                            data=df_cv.to_csv(index=False).encode("utf-8"),
-                           file_name="kfold_metrics.csv",
-                           mime="text/csv")
+                           file_name="kfold_metrics.csv", mime="text/csv")
     else:
         st.info("Activa **K-Fold CV (NN)** para visualizar.")
 
-# ---------------------------
-# 5) CLASIFICACIÓN DIRECTA
-# ---------------------------
+# 5) Clasificación directa
 with tabs[4]:
     st.subheader("🎯 Clasificación directa (SVM/KNN) — 4 clases")
     if RUN_CLF:
         bins = [0, 2, 7, 40, np.inf]
         labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
-        X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(
-            X, y_real, test_size=0.20, random_state=42
-        )
+        X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(X, y_real, test_size=0.20, random_state=42)
         y_train_cls = pd.cut(y_train_rf, bins=bins, labels=labels_bins, right=False)
         y_test_cls  = pd.cut(y_test_rf,  bins=bins, labels=labels_bins, right=False)
 
-        svm_clf = make_pipeline(StandardScaler(),
-                                SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", random_state=42))
+        svm_clf = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
+                                                      class_weight="balanced", random_state=42))
         knn_clf = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights="distance"))
 
         with st.spinner("Entrenando SVM y KNN..."):
@@ -467,38 +393,31 @@ with tabs[4]:
             fig_svm = plot_confusion_matrix_pretty(cm_svm, labels_bins, "Matriz de confusión — SVM (4 clases)")
             st.pyplot(fig_svm, use_container_width=True)
             rep_svm = classification_report(
-                y_test_cls, y_pred_svm,
-                labels=labels_bins, target_names=labels_bins,
-                digits=3, zero_division=0
+                y_test_cls, y_pred_svm, labels=labels_bins,
+                target_names=labels_bins, digits=3, zero_division=0
             )
             st.code(rep_svm)
         with col_b:
             fig_knn = plot_confusion_matrix_pretty(cm_knn, labels_bins, "Matriz de confusión — KNN (4 clases)")
             st.pyplot(fig_knn, use_container_width=True)
             rep_knn = classification_report(
-                y_test_cls, y_pred_knn,
-                labels=labels_bins, target_names=labels_bins,
-                digits=3, zero_division=0
+                y_test_cls, y_pred_knn, labels=labels_bins,
+                target_names=labels_bins, digits=3, zero_division=0
             )
             st.code(rep_knn)
     else:
         st.info("Activa **Clasificación directa (SVM/KNN)** para visualizar.")
 
-# ---------------------------
-# 6) 🔮 PREDICCIÓN EN CSV EXTERNO (sin clorofila)
-# ---------------------------
+# 6) Predicción en CSV externo
 with tabs[5]:
     st.subheader("🔮 Predicción de Clorofila en CSV externo (sin columna de clorofila)")
     st.markdown("**Requisitos de columnas:** " + ", ".join([f"`{c}`" for c in columnas_entrada]))
 
     use_session_model = st.toggle("Usar el modelo entrenado en esta sesión (si existe)", value=('model' in locals()))
+    model_infer = model if use_session_model and ('model' in locals()) else None
+    scaler_infer = scaler if use_session_model and ('scaler' in locals()) else None
 
-    model_infer = None
-    scaler_infer = None
-
-    if use_session_model and ('model' in locals()) and ('scaler' in locals()):
-        model_infer = model
-        scaler_infer = scaler
+    if model_infer and scaler_infer:
         st.success("Usando el modelo y scaler entrenados en esta sesión.")
     else:
         st.info("Sube tu modelo y scaler guardados previamente.")
@@ -514,7 +433,7 @@ with tabs[5]:
 
     up_csv = st.file_uploader("Cargar CSV externo (sin columna de clorofila)", type=["csv"])
 
-    if up_csv is not None and (model_infer is not None) and (scaler_infer is not None):
+    if up_csv is not None and model_infer is not None and scaler_infer is not None:
         try:
             df_new = pd.read_csv(up_csv)
             df_new = normalize_columns(df_new)
@@ -554,8 +473,7 @@ with tabs[5]:
             st.download_button(
                 "⬇️ Descargar CSV con predicciones",
                 data=df_out.to_csv(index=False).encode("utf-8"),
-                file_name="predicciones_externo.csv",
-                mime="text/csv"
+                file_name="predicciones_externo.csv", mime="text/csv"
             )
 
             fig_hist, axh = plt.subplots()
