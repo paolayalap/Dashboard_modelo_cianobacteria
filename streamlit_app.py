@@ -58,8 +58,8 @@ from matplotlib.patches import Rectangle
 # ===========================
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
-st.info("🔖 Build check: v1.0.3")
-#st.info("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
+st.info("🔖 Build check: v1.0.4")
+st.info("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
 
 
 # ===========================
@@ -101,6 +101,7 @@ st.sidebar.markdown("---")
 USE_ROBUST_SCALER = st.sidebar.selectbox("Scaler NN", ["RobustScaler", "StandardScaler"]) == "RobustScaler"
 Y_TRANSFORM = st.sidebar.selectbox("Transformación de y", ["log1p", "None"])
 LOSS = st.sidebar.selectbox("Función de pérdida NN", ["huber", "mse"])
+E = st.st.sidebar.selectbox("Con esto probaremos si se está actualizando",["si","no"])
 
 # ===========================
 # Carga de datos (cache)
