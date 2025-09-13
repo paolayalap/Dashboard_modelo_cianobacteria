@@ -59,6 +59,7 @@ from matplotlib.patches import Rectangle
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
 st.info("🔖 Build check: v1.0.3")
+st.text("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
 
 
 # ===========================
