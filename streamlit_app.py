@@ -95,12 +95,12 @@ RUN_CONFUSION_FROM_REGRESSION = st.sidebar.checkbox("Matriz de confusión desde 
 RUN_RF = st.sidebar.checkbox("Baseline: RandomForestRegressor", value=True)
 RUN_KFOLD = st.sidebar.checkbox("KFold CV (NN regresión)", value=True)
 RUN_CLF = st.sidebar.checkbox("Clasificación directa (SVM/KNN, 4 clases)", value=True)
+TRY_NEW_DATA = st.sidebar.toggle("🧪 Probar modelo con datos nuevos", value=True)
 
 st.sidebar.markdown("---")
 USE_ROBUST_SCALER = st.sidebar.selectbox("Scaler NN", ["RobustScaler", "StandardScaler"]) == "RobustScaler"
 Y_TRANSFORM = st.sidebar.selectbox("Transformación de y", ["log1p", "None"])
 LOSS = st.sidebar.selectbox("Función de pérdida NN", ["huber", "mse"])
-TRY_NEW_DATA = st.sidebar.toggle("🧪 Probar modelo con datos nuevos", value=False)
 
 # ===========================
 # Carga de datos (cache)
