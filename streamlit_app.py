@@ -237,7 +237,9 @@ with tabs[0]:
     else:
         st.info("Activa **Entrenar red neuronal (regresión)** en el panel lateral para ver esta sección.")
 
-# 2) Matriz desde Regresión
+# ===========================
+# 2) MATRIZ DESDE REGRESIÓN
+# ===========================
 with tabs[1]:
     st.subheader("🧩 Matriz de confusión (Regresión → Rangos)")
     if RUN_TRAIN_NN and 'model' in locals():
@@ -245,8 +247,14 @@ with tabs[1]:
         labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
 
         # Series string (NO usar .values)
-        y_true_clf_reg = pd.Series(pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False), dtype="string")
-        y_pred_clf_reg = pd.Series(pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False), dtype="string")
+        y_true_clf_reg = pd.Series(
+            pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False),
+            dtype="string"
+        )
+        y_pred_clf_reg = pd.Series(
+            pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False),
+            dtype="string"
+        )
 
         cm_reg = confusion_matrix(y_true_clf_reg, y_pred_clf_reg, labels=labels_bins)
         fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
@@ -258,19 +266,21 @@ with tabs[1]:
             digits=3, zero_division=0
         )
         st.code(rep_reg)
-        
+
+        # CSV de clases — SIN .values
         df_cls = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
-            "Clase_real": pd.Series(y_true_clf_reg).astype("string"),
+            "Clase_real": y_true_clf_reg,
             "Clorofila_predicha (µg/L)": y_pred_test,
-            "Clase_predicha": pd.Series(y_pred_clf_reg).astype("string"),
+            "Clase_predicha": y_pred_clf_reg,
         })
-
         st.download_button("⬇️ Descargar clases desde regresión (CSV)",
                            data=df_cls.to_csv(index=False).encode("utf-8"),
-                           file_name=PRED_CLASES_DESDE_REG, mime="text/csv")
+                           file_name=PRED_CLASES_DESDE_REG,
+                           mime="text/csv")
     else:
         st.info("Entrena la **Regresión NN** para habilitar esta pestaña.")
+
 
 # 3) Random Forest (baseline)
 with tabs[2]:
