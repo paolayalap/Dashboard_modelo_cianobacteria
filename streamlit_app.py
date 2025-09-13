@@ -56,11 +56,11 @@ PRED_CLASES_DESDE_REG = "predicciones_clases_desde_regresion_LOCAL.csv"
 columnas_entrada = [
     "pH",
     "Temperatura (°C)",
-    "Conductividad (µS/cm)",   # normalizamos a µ (U+00B5)
+    "Conductividad (µS/cm)",   # µ (U+00B5)
     "Oxígeno Disuelto (mg/L)",
     "Turbidez (NTU)"
 ]
-columna_salida = "Clorofila (μg/L)"
+columna_salida = "Clorofila (μg/L)"     # μ (U+03BC)
 
 # ---------------------------
 # Normalización de nombres
@@ -288,25 +288,29 @@ with tabs[0]:
     else:
         st.info("Activa **Entrenar red neuronal (regresión)** en el panel lateral para ver esta sección.")
 
-# ===========================
+# ---------------------------
 # 2) MATRIZ DESDE REGRESIÓN
-# ===========================
+# ---------------------------
 with tabs[1]:
     st.subheader("🧩 Matriz de confusión (Regresión → Rangos)")
     if RUN_TRAIN_NN and 'model' in locals():
         bins = [0, 2, 7, 40, np.inf]
         labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
 
-        # Clases desde valores reales y predichos (evita Categorical suelto)
-        y_true_clf_reg = pd.Series(pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False), dtype="string")
-        y_pred_clf_reg = pd.Series(pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False), dtype="string")
+        # Convertir directamente a Series de strings (NO usar .values)
+        y_true_clf_reg = pd.Series(
+            pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False),
+            dtype="string"
+        )
+        y_pred_clf_reg = pd.Series(
+            pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False),
+            dtype="string"
+        )
 
-        # Matriz y figura
         cm_reg = confusion_matrix(y_true_clf_reg, y_pred_clf_reg, labels=labels_bins)
         fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
         st.pyplot(fig_cm, use_container_width=True)
 
-        # Reporte robusto (aunque falte alguna clase en test)
         rep_reg = classification_report(
             y_true_clf_reg, y_pred_clf_reg,
             labels=labels_bins, target_names=labels_bins,
@@ -314,13 +318,12 @@ with tabs[1]:
         )
         st.code(rep_reg)
 
-        # >>>>>>>>>> AQUÍ ESTABA EL ERROR (.values) <<<<<<<<<<
-        # Construcción del CSV sin usar .values
+        # CSV de clases — SIN .values
         df_cls = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
-            "Clase_real": y_true_clf_reg,                 # <- ya es Series "string"
+            "Clase_real": y_true_clf_reg,
             "Clorofila_predicha (µg/L)": y_pred_test,
-            "Clase_predicha": y_pred_clf_reg,            # <- ya es Series "string"
+            "Clase_predicha": y_pred_clf_reg,
         })
         st.download_button("⬇️ Descargar clases desde regresión (CSV)",
                            data=df_cls.to_csv(index=False).encode("utf-8"),
@@ -328,7 +331,6 @@ with tabs[1]:
                            mime="text/csv")
     else:
         st.info("Entrena la **Regresión NN** para habilitar esta pestaña.")
-
 
 # ---------------------------
 # 3) RANDOM FOREST (BASELINE)
@@ -489,7 +491,6 @@ with tabs[5]:
     st.subheader("🔮 Predicción de Clorofila en CSV externo (sin columna de clorofila)")
     st.markdown("**Requisitos de columnas:** " + ", ".join([f"`{c}`" for c in columnas_entrada]))
 
-    # Elegir fuente del modelo: entrenado ahora vs. subir archivos
     use_session_model = st.toggle("Usar el modelo entrenado en esta sesión (si existe)", value=('model' in locals()))
 
     model_infer = None
@@ -511,23 +512,20 @@ with tabs[5]:
             except Exception as e:
                 st.error(f"No se pudo cargar el modelo/scaler: {e}")
 
-    # Subir CSV de datos sin clorofila
     up_csv = st.file_uploader("Cargar CSV externo (sin columna de clorofila)", type=["csv"])
 
     if up_csv is not None and (model_infer is not None) and (scaler_infer is not None):
         try:
             df_new = pd.read_csv(up_csv)
-            df_new = normalize_columns(df_new)  # normaliza variantes de nombres
+            df_new = normalize_columns(df_new)
             st.write("Vista previa de tu archivo:")
             st.dataframe(df_new.head(), use_container_width=True)
 
-            # Validación de columnas
             faltantes_new = [c for c in columnas_entrada if c not in df_new.columns]
             if faltantes_new:
                 st.error(f"Faltan columnas requeridas: {faltantes_new}")
                 st.stop()
 
-            # A numérico, dropna en features
             for col in columnas_entrada:
                 df_new[col] = pd.to_numeric(df_new[col], errors="coerce")
             n_total = len(df_new)
@@ -536,26 +534,23 @@ with tabs[5]:
             if n_after < n_total:
                 st.warning(f"Se omitieron {n_total - n_after} filas con valores no numéricos/NaN en las entradas.")
 
-            # Transformar y predecir
             X_new = df_new[columnas_entrada].values
             X_new_s = scaler_infer.transform(X_new)
             y_pred_t = model_infer.predict(X_new_s, verbose=0).ravel()
             y_pred = np.expm1(y_pred_t) if Y_TRANSFORM == "log1p" else y_pred_t
-            y_pred = np.clip(y_pred, 0.0, None)  # evita negativos
+            y_pred = np.clip(y_pred, 0.0, None)
 
-            # Clasificación por rangos
             bins = [0, 2, 7, 40, np.inf]
             labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
-            clases = pd.cut(y_pred, bins=bins, labels=labels_bins, right=False)
+            clases = pd.Series(pd.cut(y_pred, bins=bins, labels=labels_bins, right=False), dtype="string")
 
             df_out = df_new.copy()
             df_out["Clorofila_predicha (μg/L)"] = y_pred
-            df_out["Clase_predicha"] = pd.Series(clases).astype("string")
+            df_out["Clase_predicha"] = clases
 
             st.success("¡Predicción completada!")
             st.dataframe(df_out.head(50), use_container_width=True)
 
-            # Descarga
             st.download_button(
                 "⬇️ Descargar CSV con predicciones",
                 data=df_out.to_csv(index=False).encode("utf-8"),
@@ -563,7 +558,6 @@ with tabs[5]:
                 mime="text/csv"
             )
 
-            # Distribución de predicciones
             fig_hist, axh = plt.subplots()
             axh.hist(y_pred, bins=30)
             axh.set_title("Distribución de Clorofila predicha (μg/L)")
