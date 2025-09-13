@@ -318,7 +318,7 @@ with tabs[1]:
         )
         st.code(rep_reg)
 
-        # CSV de clases — SIN .values
+        # CSV de clases — SIN streamlit_app.py
         df_cls = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
             "Clase_real": y_true_clf_reg,
