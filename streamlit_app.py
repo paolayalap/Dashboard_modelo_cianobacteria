@@ -44,8 +44,7 @@ st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
 # ===========================
 # Rutas/URLs (lo que tenías)
 # ===========================
-# Lo que en tu script eran archivos locales ahora son URLs crudas de GitHub
-EXCEL_ORIG_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/DATOS_AMSA.csv"   # (antes: EXCEL_ORIG = 'DATOS AMSA.xlsx' / 'Hoja3')
+EXCEL_ORIG_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/DATOS_AMSA.csv"
 CSV_LIMPIO_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/datos_amsa.csv"
 CSV_FILTRADO_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/datos_filtrados.csv"
 PRED_REG_CSV_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/predicciones_clorofila.csv"
@@ -241,15 +240,13 @@ with tabs[0]:
         col4.metric("R² (test)", f"{r2:.3f}")
 
         # Guardado local + botón de descarga
-        # Modelo
         model.save(MODEL_PATH)
         with open(MODEL_PATH, "rb") as f:
             st.download_button("⬇️ Descargar modelo (.keras)", data=f, file_name=MODEL_PATH, mime="application/octet-stream")
-        # Scaler
         joblib.dump(scaler, SCALER_PATH)
         with open(SCALER_PATH, "rb") as f:
             st.download_button("⬇️ Descargar scaler (.pkl)", data=f, file_name=SCALER_PATH, mime="application/octet-stream")
-        # Predicciones
+
         df_preds = pd.DataFrame({
             "Clorofila_real (μg/L)": y_true_test,
             "Clorofila_predicha (μg/L)": y_pred_test
@@ -277,8 +274,16 @@ with tabs[1]:
         fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
         st.pyplot(fig_cm, use_container_width=True)
 
-        # Reporte
-        st.code(classification_report(y_true_clf_reg, y_pred_clf_reg, target_names=labels_bins, digits=3))
+        # -------- FIX AQUÍ --------
+        rep_reg = classification_report(
+            y_true_clf_reg, y_pred_clf_reg,
+            labels=labels_bins,        # fuerza las 4 clases en el orden dado
+            target_names=labels_bins,  # nombres alineados
+            digits=3,
+            zero_division=0            # evita ValueError cuando una clase no aparece
+        )
+        st.code(rep_reg)
+        # --------------------------
 
         # Descarga CSV de clases
         df_cls = pd.DataFrame({
@@ -447,10 +452,33 @@ with tabs[4]:
         with col_a:
             fig_svm = plot_confusion_matrix_pretty(cm_svm, labels_bins, "Matriz de confusión — SVM (4 clases)")
             st.pyplot(fig_svm, use_container_width=True)
-            st.code("Reporte SVM:\n" + classification_report(y_test_cls, y_pred_svm, target_names=labels_bins, digits=3))
+
+            # -------- FIX AQUÍ --------
+            rep_svm = classification_report(
+                y_test_cls, y_pred_svm,
+                labels=labels_bins,
+                target_names=labels_bins,
+                digits=3,
+                zero_division=0
+            )
+            st.code(rep_svm)
+            # --------------------------
+
         with col_b:
             fig_knn = plot_confusion_matrix_pretty(cm_knn, labels_bins, "Matriz de confusión — KNN (4 clases)")
             st.pyplot(fig_knn, use_container_width=True)
-            st.code("Reporte KNN:\n" + classification_report(y_test_cls, y_pred_knn, target_names=labels_bins, digits=3))
+
+            # -------- FIX AQUÍ --------
+            rep_knn = classification_report(
+                y_test_cls, y_pred_knn,
+                labels=labels_bins,
+                target_names=labels_bins,
+                digits=3,
+                zero_division=0
+            )
+            st.code(rep_knn)
+            # --------------------------
+
     else:
         st.info("Activa **Clasificación directa (SVM/KNN)** para visualizar.")
+
