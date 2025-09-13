@@ -59,7 +59,7 @@ from matplotlib.patches import Rectangle
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
 st.info("🔖 Build check: v1.0.4")
-st.info("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
+st.subtitle("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
 
 
 # ===========================
@@ -101,7 +101,7 @@ st.sidebar.markdown("---")
 USE_ROBUST_SCALER = st.sidebar.selectbox("Scaler NN", ["RobustScaler", "StandardScaler"]) == "RobustScaler"
 Y_TRANSFORM = st.sidebar.selectbox("Transformación de y", ["log1p", "None"])
 LOSS = st.sidebar.selectbox("Función de pérdida NN", ["huber", "mse"])
-E = st.st.sidebar.selectbox("Con esto probaremos si se está actualizando",["si","no"])
+E = st.sidebar.selectbox("Con esto probaremos si se está actualizando",["si","no"])
 
 # ===========================
 # Carga de datos (cache)
@@ -526,8 +526,8 @@ with tabs[5]:
 
     if model_infer is None or scaler_infer is None:
         st.warning("No encuentro un modelo/scaler entrenados en esta sesión. Sube tus archivos guardados.")
-        mdl_file = st.file_uploader("Modelo (.keras/.h5)", type=["keras", "h5", "hdf5"])
-        scl_file = st.file_uploader("Scaler (.pkl)", type=["pkl"])
+        mdl_file = st.file_uploader("Modelo (.keras/.h5)", type=["keras", "h5", "hdf5"], key="mdl_new")
+        scl_file = st.file_uploader("Scaler (.pkl)", type=["pkl"], key="scl_new")
         if mdl_file is not None and scl_file is not None:
             try:
                 model_infer = keras.models.load_model(mdl_file)
@@ -535,17 +535,19 @@ with tabs[5]:
                 st.success("Modelo y scaler cargados correctamente.")
             except Exception as e:
                 st.error(f"No se pudo cargar el modelo/scaler: {e}")
-                st.stop()
+        # Si aún no hay ambos, detenemos aquí para no seguir
+        if model_infer is None or scaler_infer is None:
+            st.stop()
 
     # --- Carga de CSV nuevo ---
-    up_csv = st.file_uploader("Cargar CSV con **nuevos** datos (sin clorofila)", type=["csv"])
+    up_csv = st.file_uploader("Cargar CSV con **nuevos** datos (sin clorofila)", type=["csv"], key="csv_newdata")
     if up_csv is None:
+        st.info("Sube un CSV para ver matrices y tabla de resultados.")
         st.stop()
 
     # Lectura y validación
     df_new = pd.read_csv(up_csv)
 
-    # Normaliza nombres mínimos (acepta variantes típicas)
     def _normalize_cols(df: pd.DataFrame) -> pd.DataFrame:
         mapping = {
             "ph": "pH",
@@ -590,8 +592,7 @@ with tabs[5]:
     LABELS = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
     cls_reg = pd.Series(pd.cut(y_pred, bins=BINS, labels=LABELS, right=False), dtype="string")
 
-    # --- Clasificadores directos (SVM/KNN) para los nuevos datos ---
-    # Reusa los de sesión si existen; si no, entrena rápido sobre TODO el dataset actual
+    # Clasificadores directos (SVM/KNN)
     if 'svm_clf' in locals() and 'knn_clf' in locals():
         clf_svm, clf_knn = svm_clf, knn_clf
     else:
@@ -605,10 +606,10 @@ with tabs[5]:
     cls_svm = clf_svm.predict(X_new)
     cls_knn = clf_knn.predict(X_new)
 
-    # --- “Matriz de regresión” (conteos por rango de la NN) y comparativas contra SVM/KNN ---
-    cm_reg_new = confusion_matrix(cls_reg, cls_reg, labels=LABELS)          # diagonal con conteos por rango
-    cm_svm_new = confusion_matrix(cls_reg, cls_svm, labels=LABELS)          # SVM vs NN (proxy)
-    cm_knn_new = confusion_matrix(cls_reg, cls_knn, labels=LABELS)          # KNN vs NN (proxy)
+    # Matrices
+    cm_reg_new = confusion_matrix(cls_reg, cls_reg, labels=LABELS)
+    cm_svm_new = confusion_matrix(cls_reg, cls_svm, labels=LABELS)
+    cm_knn_new = confusion_matrix(cls_reg, cls_knn, labels=LABELS)
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -621,16 +622,14 @@ with tabs[5]:
         st.caption("Matriz (KNN vs rangos de NN)")
         st.pyplot(plot_confusion_matrix_pretty(cm_knn_new, LABELS, "KNN vs NN (proxy)"), use_container_width=True)
 
-    # --- Tabla y descarga ---
+    # Tabla + descarga
     df_out = df_new.copy()
     df_out["Clorofila_predicha (μg/L)"] = y_pred
     df_out["Clase_NN"]  = cls_reg
     df_out["Clase_SVM"] = cls_svm
     df_out["Clase_KNN"] = cls_knn
-
     st.success("¡Predicción sobre los nuevos datos lista!")
     st.dataframe(df_out.head(50), use_container_width=True)
-
     st.download_button(
         "⬇️ Descargar CSV con nuevas predicciones",
         data=df_out.to_csv(index=False).encode("utf-8"),
@@ -638,7 +637,6 @@ with tabs[5]:
         mime="text/csv"
     )
 
-    # Distribución de clorofila predicha (útil para sanity check)
     fig_hist, axh = plt.subplots()
     axh.hist(y_pred, bins=30)
     axh.set_title("Distribución de Clorofila predicha (μg/L)")
