@@ -321,7 +321,7 @@ with tabs[1]:
         # CSV de clases — SIN streamlit_app.py
         df_cls = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
-            "Clase_real": y_true_clf_reg,
+            "Clase_real": y_true_clf_reg.streamlit_app.py,
             "Clorofila_predicha (µg/L)": y_pred_test,
             "Clase_predicha": y_pred_clf_reg,
         })
