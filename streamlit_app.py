@@ -320,3 +320,186 @@ with tabs[1]:
                            mime="text/csv")
     else:
         st.info("Entrena la **Regresión NN** para habilitar esta pestaña.")
+
+# ===========================
+# 3) RANDOM FOREST (BASELINE)
+# ===========================
+with tabs[2]:
+    st.subheader("🌲 Baseline: RandomForestRegressor")
+
+    if RUN_RF:
+        X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(
+            X, y_real, test_size=0.20, random_state=42
+        )
+        rf = RandomForestRegressor(n_estimators=600, random_state=42, n_jobs=-1)
+        with st.spinner("Entrenando RandomForest..."):
+            rf.fit(X_train_rf, y_train_rf)
+        y_pred_rf = rf.predict(X_test_rf)
+
+        mse_rf  = mean_squared_error(y_test_rf, y_pred_rf)
+        rmse_rf = np.sqrt(mse_rf)
+        mae_rf  = mean_absolute_error(y_test_rf, y_pred_rf)
+        r2_rf   = r2_score(y_test_rf, y_pred_rf)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("MSE (test)", f"{mse_rf:.2f}")
+        c2.metric("RMSE (test)", f"{rmse_rf:.2f}")
+        c3.metric("MAE (test)", f"{mae_rf:.2f}")
+        c4.metric("R² (test)", f"{r2_rf:.3f}")
+
+        # Importancia de características
+        imp = pd.Series(rf.feature_importances_, index=columnas_entrada).sort_values(ascending=False)
+        fig_imp, ax = plt.subplots(figsize=(6,4))
+        imp.plot(kind="bar", ax=ax)
+        ax.set_title("Importancia de características (RF)")
+        ax.set_ylabel("Importancia")
+        ax.grid(True, axis="y", alpha=0.4)
+        fig_imp.tight_layout()
+        st.pyplot(fig_imp, use_container_width=True)
+
+        st.dataframe(imp.reset_index().rename(columns={"index":"Feature", 0:"Importance"}), use_container_width=True)
+    else:
+        st.info("Activa **RandomForestRegressor** para visualizar.")
+
+# ===========================
+# 4) K-FOLD CV (NN REGRESIÓN)
+# ===========================
+with tabs[3]:
+    st.subheader("🔁 Validación Cruzada (K=5) para NN de Regresión")
+
+    if RUN_KFOLD:
+        X_raw = X.copy()
+        y_raw = y_real.copy()
+
+        def nn_builder(input_dim):
+            m = keras.Sequential([
+                layers.Input(shape=(input_dim,)),
+                layers.Dense(128, activation="relu"),
+                layers.Dropout(0.15),
+                layers.Dense(64, activation="relu"),
+                layers.Dense(1)
+            ])
+            m.compile(optimizer=keras.optimizers.Adam(), loss=Huber(), metrics=["mae"])
+            return m
+
+        kf = KFold(n_splits=5, shuffle=True, random_state=42)
+        metrics = []
+
+        progress = st.progress(0.0, text="Ejecutando K-Fold...")
+        for fold, (tr_idx, te_idx) in enumerate(kf.split(X_raw), start=1):
+            X_tr, X_te = X_raw[tr_idx], X_raw[te_idx]
+            y_tr, y_te = y_raw[tr_idx], y_raw[te_idx]
+
+            if Y_TRANSFORM == "log1p":
+                y_tr_t = np.log1p(y_tr)
+                y_te_t = np.log1p(y_te)
+            else:
+                y_tr_t = y_tr.copy()
+                y_te_t = y_te.copy()
+
+            scaler_cv = RobustScaler() if USE_ROBUST_SCALER else StandardScaler()
+            X_tr_s = scaler_cv.fit_transform(X_tr)
+            X_te_s = scaler_cv.transform(X_te)
+
+            model_cv = nn_builder(X_tr_s.shape[1])
+            es = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
+            rl = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=8, min_lr=1e-6, verbose=0)
+            model_cv.fit(X_tr_s, y_tr_t, validation_split=0.2, epochs=300, batch_size=32, verbose=0, callbacks=[es, rl])
+
+            y_pred_t = model_cv.predict(X_te_s, verbose=0).ravel()
+            y_pred = np.expm1(y_pred_t) if Y_TRANSFORM == "log1p" else y_pred_t
+
+            mse  = mean_squared_error(y_te, y_pred)
+            rmse = np.sqrt(mse)
+            mae  = mean_absolute_error(y_te, y_pred)
+            r2   = r2_score(y_te, y_pred)
+            metrics.append((fold, mse, rmse, mae, r2))
+
+            progress.progress(fold/5.0, text=f"Fold {fold}/5 completado")
+
+        df_cv = pd.DataFrame(metrics, columns=["Fold","MSE","RMSE","MAE","R2"])
+        st.dataframe(df_cv.style.format({"MSE":"{:.2f}","RMSE":"{:.2f}","MAE":"{:.2f}","R2":"{:.3f}"}),
+                     use_container_width=True)
+
+        st.write("**Promedios ± std:**")
+        st.write(f"- MSE : {df_cv['MSE'].mean():.2f} ± {df_cv['MSE'].std():.2f}")
+        st.write(f"- RMSE: {df_cv['RMSE'].mean():.2f} ± {df_cv['RMSE'].std():.2f}")
+        st.write(f"- MAE : {df_cv['MAE'].mean():.2f} ± {df_cv['MAE'].std():.2f}")
+        st.write(f"- R²  : {df_cv['R2'].mean():.3f} ± {df_cv['R2'].std():.3f}")
+
+        st.download_button("⬇️ Descargar métricas K-Fold (CSV)",
+                           data=df_cv.to_csv(index=False).encode("utf-8"),
+                           file_name="kfold_metrics.csv",
+                           mime="text/csv")
+    else:
+        st.info("Activa **K-Fold CV (NN)** para visualizar.")
+
+# ===========================
+# 5) CLASIFICACIÓN DIRECTA (SVM/KNN, 4 clases)
+# ===========================
+with tabs[4]:
+    st.subheader("🎯 Clasificación directa (SVM/KNN) — 4 clases")
+
+    if RUN_CLF:
+        bins = [0, 2, 7, 40, np.inf]
+        labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
+
+        # Etiquetas de clase desde y_real
+        y_cls_all = pd.cut(y_real, bins=bins, labels=labels_bins, right=False)
+
+        # Coherencia de splits con la NN
+        X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(
+            X, y_real, test_size=0.20, random_state=42
+        )
+        y_train_cls = pd.cut(y_train_rf, bins=bins, labels=labels_bins, right=False)
+        y_test_cls  = pd.cut(y_test_rf,  bins=bins, labels=labels_bins, right=False)
+
+        # Pipelines
+        svm_clf = make_pipeline(StandardScaler(),
+                                SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", random_state=42))
+        knn_clf = make_pipeline(StandardScaler(),
+                                KNeighborsClassifier(n_neighbors=7, weights="distance"))
+
+        with st.spinner("Entrenando SVM y KNN..."):
+            svm_clf.fit(X_train_rf, y_train_cls)
+            knn_clf.fit(X_train_rf, y_train_cls)
+
+        y_pred_svm = svm_clf.predict(X_test_rf)
+        y_pred_knn = knn_clf.predict(X_test_rf)
+
+        cm_svm = confusion_matrix(y_test_cls, y_pred_svm, labels=labels_bins)
+        cm_knn = confusion_matrix(y_test_cls, y_pred_knn, labels=labels_bins)
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            fig_svm = plot_confusion_matrix_pretty(cm_svm, labels_bins, "Matriz de confusión — SVM (4 clases)")
+            st.pyplot(fig_svm, use_container_width=True)
+
+            # -------- FIX AQUÍ --------
+            rep_svm = classification_report(
+                y_test_cls, y_pred_svm,
+                labels=labels_bins,
+                target_names=labels_bins,
+                digits=3,
+                zero_division=0
+            )
+            st.code(rep_svm)
+            # --------------------------
+
+        with col_b:
+            fig_knn = plot_confusion_matrix_pretty(cm_knn, labels_bins, "Matriz de confusión — KNN (4 clases)")
+            st.pyplot(fig_knn, use_container_width=True)
+
+            # -------- FIX AQUÍ --------
+            rep_knn = classification_report(
+                y_test_cls, y_pred_knn,
+                labels=labels_bins,
+                target_names=labels_bins,
+                digits=3,
+                zero_division=0
+            )
+            st.code(rep_knn)
+            # --------------------------
+
+    else:
+        st.info("Activa **Clasificación directa (SVM/KNN)** para visualizar.")
