@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
+st.cache_data.clear()  # ← fuerza a invalidar la caché de datos
+st.experimental_rerun()  # ← hace un rerun inmediato con el código actual
 
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.preprocessing import StandardScaler, RobustScaler
@@ -32,6 +34,8 @@ from matplotlib.patches import Rectangle
 
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
+st.info("🔖 Build: v2025-09-12-01")
+
 
 # URLs de datos (GitHub raw)
 EXCEL_ORIG_URL   = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/DATOS_AMSA.csv"
@@ -268,6 +272,11 @@ with tabs[1]:
         st.code(rep_reg)
 
         # CSV de clases — SIN .values
+
+        st.write("DEBUG tipos:", type(y_true_clf_reg), y_true_clf_reg.dtype,
+                type(y_pred_clf_reg), y_pred_clf_reg.dtype)
+
+        
         df_cls = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
             "Clase_real": y_true_clf_reg,
