@@ -526,159 +526,194 @@ with tabs[5]:
     st.caption("Sube un CSV con **solo**: pH, Temperatura (°C), Conductividad (μS/cm), Oxígeno Disuelto (mg/L), Turbidez (NTU).")
 
     if not TRY_NEW_DATA:
-        st.info("Activa **‘🧪 Probar modelo con datos nuevos’** en el panel lateral para habilitar esta pestaña.")
-    else:
-        # --- Modelo / scaler para inferencia ---
-        model_infer = model if 'model' in locals() else None
-        scaler_infer = scaler if 'scaler' in locals() else None
+        st.info("Activa **‘Probar modelo con datos nuevos’** en el panel lateral para habilitar esta pestaña.")
+        st.stop()
 
-        if model_infer is None or scaler_infer is None:
-            st.warning("No encuentro un modelo/scaler entrenados en esta sesión. Sube tus archivos guardados.")
-            mdl_file = st.file_uploader("Modelo (.keras/.h5)", type=["keras", "h5", "hdf5"], key="mdl_new")
-            scl_file = st.file_uploader("Scaler (.pkl)", type=["pkl"], key="scl_new")
-            if mdl_file is not None and scl_file is not None:
+    # -------------------------
+    # 0) Helper: lectura robusta
+    # -------------------------
+    def read_csv_robust(uploaded):
+        encodings = ["utf-8", "utf-8-sig", "latin1", "cp1252", "iso-8859-1"]
+        seps = [None, ",", ";", "\t", "|"]  # None => autodetección con engine='python'
+        for enc in encodings:
+            for sep in seps:
                 try:
-                    model_infer = keras.models.load_model(mdl_file)
-                    scaler_infer = joblib.load(scl_file)
-                    st.success("Modelo y scaler cargados correctamente.")
-                except Exception as e:
-                    st.error(f"No se pudo cargar el modelo/scaler: {e}")
-
-        # Solo seguimos si tenemos ambos
-        if model_infer is not None and scaler_infer is not None:
-            # --- Carga de CSV nuevo ---
-            up_csv = st.file_uploader(
-                "Cargar CSV con **nuevos** datos (sin clorofila)", type=["csv"], key="csv_newdata"
-            )
-            if up_csv is None:
-                st.info("Sube un CSV para ver matrices y tabla de resultados.")
-                st.stop()
-            
-            def read_csv_robust(uploaded):
-                encodings = ["utf-8", "utf-8-sig", "latin1", "cp1252", "iso-8859-1"]
-                seps = [None, ",", ";", "\t", "|"]   # None = autodetect con engine='python'
-                for enc in encodings:
-                    for sep in seps:
-                        try:
-                            uploaded.seek(0)  # reubicar puntero
-                            df = pd.read_csv(
-                                uploaded,
-                                encoding=enc,
-                                sep=sep,
-                                engine="python" if sep is None else "c"
-                            )
-                            return df
-                        except UnicodeDecodeError:
-                            continue
-                        except Exception:
-                            # ParserError u otros -> probamos siguiente combinación
-                            continue
-                return None
-            
-            df_new = read_csv_robust(up_csv)
-            if df_new is None:
-                st.error("No pude leer el CSV. Guarda como UTF-8 (o UTF-8 con BOM) y usa coma/; como separador.")
-                st.stop()
-
-
-                def _normalize_cols(df: pd.DataFrame) -> pd.DataFrame:
-                    mapping = {
-                        "ph": "pH",
-                        "temperatura": "Temperatura (°C)",
-                        "temperatura (c)": "Temperatura (°C)",
-                        "temp (°c)": "Temperatura (°C)",
-                        "conductividad": "Conductividad (μS/cm)",
-                        "conductividad (us/cm)": "Conductividad (μS/cm)",
-                        "conductividad (µs/cm)": "Conductividad (μS/cm)",
-                        "conductividad (μs/cm)": "Conductividad (μS/cm)",
-                        "oxigeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
-                        "oxígeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
-                        "turbidez (ntu)": "Turbidez (NTU)",
-                        "turbiedad (ntu)": "Turbidez (NTU)",
-                    }
-                    ren = {c: mapping.get(c.strip().lower(), c) for c in df.columns}
-                    return df.rename(columns=ren)
-
-                df_new = _normalize_cols(df_new)
-                req = ["pH","Temperatura (°C)","Conductividad (μS/cm)","Oxígeno Disuelto (mg/L)","Turbidez (NTU)"]
-                faltantes_new = [c for c in req if c not in df_new.columns]
-                if faltantes_new:
-                    st.error(f"Faltan columnas requeridas: {faltantes_new}")
-                else:
-                    for c in req:
-                        df_new[c] = (
-                            df_new[c].astype(str)
-                                      .str.replace("\u00A0", "", regex=False)  # NBSP de Excel
-                                      .str.replace(",", ".", regex=False)      # coma -> punto
-                        )
-                        df_new[c] = pd.to_numeric(df_new[c], errors="coerce")
-                    n0 = len(df_new)
-                    df_new = df_new.dropna(subset=req).reset_index(drop=True)
-                    if len(df_new) < n0:
-                        st.warning(f"Se omitieron {n0 - len(df_new)} filas por valores no numéricos/NaN en las entradas.")
-
-                    # --- Predicción con la NN de regresión ---
-                    X_new = df_new[req].values
-                    X_new_s = scaler_infer.transform(X_new)
-                    y_pred_t = model_infer.predict(X_new_s, verbose=0).ravel()
-                    y_pred = np.expm1(y_pred_t) if Y_TRANSFORM == "log1p" else y_pred_t
-                    y_pred = np.clip(y_pred, 0.0, None)
-
-                    # Rangos y etiquetas
-                    BINS = [0, 2, 7, 40, np.inf]
-                    LABELS = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
-                    cls_reg = pd.Series(pd.cut(y_pred, bins=BINS, labels=LABELS, right=False), dtype="string")
-
-                    # Clasificadores directos (SVM/KNN)
-                    if 'svm_clf' in locals() and 'knn_clf' in locals():
-                        clf_svm, clf_knn = svm_clf, knn_clf
-                    else:
-                        y_all_cls = pd.cut(y_real, bins=BINS, labels=LABELS, right=False)
-                        clf_svm = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
-                                                                      class_weight="balanced", random_state=42))
-                        clf_knn = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights="distance"))
-                        clf_svm.fit(X, y_all_cls)
-                        clf_knn.fit(X, y_all_cls)
-
-                    cls_svm = clf_svm.predict(X_new)
-                    cls_knn = clf_knn.predict(X_new)
-
-                    # Matrices
-                    cm_reg_new = confusion_matrix(cls_reg, cls_reg, labels=LABELS)
-                    cm_svm_new = confusion_matrix(cls_reg, cls_svm, labels=LABELS)
-                    cm_knn_new = confusion_matrix(cls_reg, cls_knn, labels=LABELS)
-
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        st.caption("Matriz (Regresión NN → Rangos)")
-                        st.pyplot(plot_confusion_matrix_pretty(cm_reg_new, LABELS, "Regresión NN (rangos)"), use_container_width=True)
-                    with c2:
-                        st.caption("Matriz (SVM vs rangos de NN)")
-                        st.pyplot(plot_confusion_matrix_pretty(cm_svm_new, LABELS, "SVM vs NN (proxy)"), use_container_width=True)
-                    with c3:
-                        st.caption("Matriz (KNN vs rangos de NN)")
-                        st.pyplot(plot_confusion_matrix_pretty(cm_knn_new, LABELS, "KNN vs NN (proxy)"), use_container_width=True)
-
-                    # Tabla + descarga
-                    df_out = df_new.copy()
-                    df_out["Clorofila_predicha (μg/L)"] = y_pred
-                    df_out["Clase_NN"]  = cls_reg
-                    df_out["Clase_SVM"] = cls_svm
-                    df_out["Clase_KNN"] = cls_knn
-                    st.success("¡Predicción sobre los nuevos datos lista!")
-                    st.dataframe(df_out.head(50), use_container_width=True)
-                    st.download_button(
-                        "⬇️ Descargar CSV con nuevas predicciones",
-                        data=df_out.to_csv(index=False).encode("utf-8"),
-                        file_name="nuevas_predicciones_con_clases.csv",
-                        mime="text/csv"
+                    uploaded.seek(0)
+                    df = pd.read_csv(
+                        uploaded,
+                        encoding=enc,
+                        sep=sep,
+                        engine="python" if sep is None else "c",
                     )
+                    return df
+                except Exception:
+                    continue
+        return None
 
-                    fig_hist, axh = plt.subplots()
-                    axh.hist(y_pred, bins=30)
-                    axh.set_title("Distribución de Clorofila predicha (μg/L)")
-                    axh.set_xlabel("Clorofila (μg/L)")
-                    axh.set_ylabel("Frecuencia")
-                    st.pyplot(fig_hist, use_container_width=True)
+    # -------------------------
+    # 1) Modelo / scaler
+    # -------------------------
+    model_infer = model if "model" in locals() else None
+    scaler_infer = scaler if "scaler" in locals() else None
+
+    if model_infer is None or scaler_infer is None:
+        st.warning("No encuentro un modelo/scaler entrenados en esta sesión. Sube tus archivos guardados.")
+        mdl_file = st.file_uploader("Modelo (.keras/.h5)", type=["keras", "h5", "hdf5"], key="mdl_new")
+        scl_file = st.file_uploader("Scaler (.pkl)", type=["pkl"], key="scl_new")
+        if mdl_file and scl_file:
+            try:
+                model_infer = keras.models.load_model(mdl_file)
+                scaler_infer = joblib.load(scl_file)
+                st.success("Modelo y scaler cargados correctamente.")
+            except Exception as e:
+                st.error(f"No se pudo cargar el modelo/scaler: {e}")
+                st.stop()
+        else:
+            st.info("Sube **ambos** archivos para continuar.")
+            st.stop()
+
+    # -------------------------
+    # 2) CSV nuevo
+    # -------------------------
+    up_csv = st.file_uploader("Cargar CSV con **nuevos** datos (sin clorofila)", type=["csv"], key="csv_newdata")
+    if up_csv is None:
+        st.info("Sube un CSV para ver matrices y tabla de resultados.")
+        st.stop()
+
+    df_new = read_csv_robust(up_csv)
+    if df_new is None or df_new.empty:
+        st.error("No pude leer el CSV. Guarda como UTF-8 (o UTF-8 con BOM) y usa coma/; como separador.")
+        st.stop()
+
+    st.write("Vista previa del archivo cargado:")
+    st.dataframe(df_new.head(), use_container_width=True)
+
+    # -------------------------
+    # 3) Normalizar columnas
+    # -------------------------
+    def _normalize_cols(df: pd.DataFrame) -> pd.DataFrame:
+        mapping = {
+            "ph": "pH",
+            "temperatura": "Temperatura (°C)",
+            "temperatura (c)": "Temperatura (°C)",
+            "temp (°c)": "Temperatura (°C)",
+            "temp": "Temperatura (°C)",
+            "conductividad": "Conductividad (μS/cm)",
+            "conductividad (us/cm)": "Conductividad (μS/cm)",
+            "conductividad (µs/cm)": "Conductividad (μS/cm)",
+            "conductividad (μs/cm)": "Conductividad (μS/cm)",
+            "oxigeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
+            "oxígeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
+            "do (mg/l)": "Oxígeno Disuelto (mg/L)",
+            "turbidez (ntu)": "Turbidez (NTU)",
+            "turbiedad (ntu)": "Turbidez (NTU)",
+        }
+        ren = {c: mapping.get(c.strip().lower(), c) for c in df.columns}
+        return df.rename(columns=ren)
+
+    df_new = _normalize_cols(df_new)
+
+    req = ["pH","Temperatura (°C)","Conductividad (μS/cm)","Oxígeno Disuelto (mg/L)","Turbidez (NTU)"]
+    faltantes = [c for c in req if c not in df_new.columns]
+    if faltantes:
+        st.error(f"Faltan columnas requeridas: {faltantes}")
+        st.stop()
+
+    # Acepta coma decimal y NBSP; reordena columnas por si vienen en otro orden
+    for c in req:
+        df_new[c] = (
+            df_new[c].astype(str)
+                      .str.replace("\u00A0", "", regex=False)  # NBSP
+                      .str.replace(",", ".", regex=False)      # 12,34 -> 12.34
+        )
+        df_new[c] = pd.to_numeric(df_new[c], errors="coerce")
+
+    n0 = len(df_new)
+    df_new = df_new[req]  # reordenar
+    df_new = df_new.dropna(subset=req).reset_index(drop=True)
+    if df_new.empty:
+        st.error("Todas las filas quedaron inválidas tras la conversión numérica. Revisa el CSV.")
+        st.stop()
+    elif len(df_new) < n0:
+        st.warning(f"Se omitieron {n0 - len(df_new)} filas por valores no numéricos/NaN.")
+
+    # -------------------------
+    # 4) Predicción NN (regresión) + clases por rangos
+    # -------------------------
+    X_new = df_new[req].values
+    try:
+        X_new_s = scaler_infer.transform(X_new)
+        y_pred_t = model_infer.predict(X_new_s, verbose=0).ravel()
+    except Exception as e:
+        st.error(f"Fallo en inferencia: {e}")
+        st.stop()
+
+    y_pred = np.expm1(y_pred_t) if Y_TRANSFORM == "log1p" else y_pred_t
+    y_pred = np.clip(y_pred, 0.0, None)
+
+    BINS = [0, 2, 7, 40, np.inf]
+    LABELS = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
+    cls_reg = pd.Series(pd.cut(y_pred, bins=BINS, labels=LABELS, right=False), dtype="string")
+
+    # -------------------------
+    # 5) Clasificación directa (SVM/KNN)
+    # -------------------------
+    if ("svm_clf" in locals()) and ("knn_clf" in locals()):
+        clf_svm, clf_knn = svm_clf, knn_clf
+    else:
+        y_all_cls = pd.cut(y_real, bins=BINS, labels=LABELS, right=False)
+        clf_svm = make_pipeline(StandardScaler(),
+                                SVC(kernel="rbf", C=2.0, gamma="scale",
+                                    class_weight="balanced", random_state=42))
+        clf_knn = make_pipeline(StandardScaler(),
+                                KNeighborsClassifier(n_neighbors=7, weights="distance"))
+        clf_svm.fit(X, y_all_cls)
+        clf_knn.fit(X, y_all_cls)
+
+    cls_svm = clf_svm.predict(X_new)
+    cls_knn = clf_knn.predict(X_new)
+
+    # -------------------------
+    # 6) Matrices + tabla + descarga
+    # -------------------------
+    cm_reg_new = confusion_matrix(cls_reg, cls_reg, labels=LABELS)
+    cm_svm_new = confusion_matrix(cls_reg, cls_svm, labels=LABELS)
+    cm_knn_new = confusion_matrix(cls_reg, cls_knn, labels=LABELS)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.caption("Matriz (Regresión NN → Rangos)")
+        st.pyplot(plot_confusion_matrix_pretty(cm_reg_new, LABELS, "Regresión NN (rangos)"),
+                  use_container_width=True)
+    with c2:
+        st.caption("Matriz (SVM vs rangos de NN)")
+        st.pyplot(plot_confusion_matrix_pretty(cm_svm_new, LABELS, "SVM vs NN (proxy)"),
+                  use_container_width=True)
+    with c3:
+        st.caption("Matriz (KNN vs rangos de NN)")
+        st.pyplot(plot_confusion_matrix_pretty(cm_knn_new, LABELS, "KNN vs NN (proxy)"),
+                  use_container_width=True)
+
+    df_out = df_new.copy()
+    df_out["Clorofila_predicha (μg/L)"] = y_pred
+    df_out["Clase_NN"]  = cls_reg
+    df_out["Clase_SVM"] = cls_svm
+    df_out["Clase_KNN"] = cls_knn
+
+    st.success("¡Predicción sobre los nuevos datos lista!")
+    st.dataframe(df_out.head(50), use_container_width=True)
+    st.download_button(
+        "⬇️ Descargar CSV con nuevas predicciones",
+        data=df_out.to_csv(index=False).encode("utf-8"),
+        file_name="nuevas_predicciones_con_clases.csv",
+        mime="text/csv"
+    )
+
+    fig_hist, axh = plt.subplots()
+    axh.hist(y_pred, bins=30)
+    axh.set_title("Distribución de Clorofila predicha (μg/L)")
+    axh.set_xlabel("Clorofila (μg/L)")
+    axh.set_ylabel("Frecuencia")
+    st.pyplot(fig_hist, use_container_width=True)
 
     
