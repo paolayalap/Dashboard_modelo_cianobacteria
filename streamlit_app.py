@@ -59,11 +59,11 @@ from matplotlib.patches import Rectangle
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
 st.info("🔖 Build check: v1.0.3")
-st.text("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
+st.info("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
 
 
 # ===========================
-# Rutas/URLs (lo que tenías)
+# Rutas/URLs 
 # ===========================
 EXCEL_ORIG_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/DATOS_AMSA.csv"
 CSV_LIMPIO_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/datos_amsa.csv"
