@@ -1,421 +1,456 @@
-import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # opcional
+# ============================================
+# Página: Modelado y Clasificación (Clorofila)
+# Lee data desde tus URLs de GitHub (raw),
+# entrena/regresa/clasifica y ordena TODAS
+# las figuras en pestañas, con banderas en sidebar.
+# ============================================
 
-import unicodedata
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Evita ciertos warnings numéricos
+
+import io
 import numpy as np
 import pandas as pd
-import streamlit as st
 import matplotlib.pyplot as plt
-import requests, joblib
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_predict
-from sklearn.metrics import (mean_squared_error, mean_absolute_error, confusion_matrix,
-                             ConfusionMatrixDisplay, classification_report,
-                             precision_recall_fscore_support, roc_auc_score)
+import streamlit as st
+
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.preprocessing import StandardScaler, RobustScaler
+from sklearn.metrics import (
+    mean_squared_error, mean_absolute_error, r2_score,
+    confusion_matrix, classification_report
+)
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
+import joblib
 
-# ==============================
-# Config general
-# ==============================
-st.set_page_config(page_title="🧪 Dashboard cyanobacteria", layout="wide")
-st.title("🧪 Dashboard cyanobacteria")
-st.write("Carga CSV (coma), limpieza, **Regresión (NN)** para clorofila y **Clasificación (SVM/KNN)** con umbral 40 µg/L.")
+# ==== TensorFlow/Keras (sección de regresión NN) ====
+import tensorflow as tf
+from tensorflow import keras
+from keras import layers
+from keras.losses import Huber
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from matplotlib.patches import Rectangle
 
-# URLs crudos de GitHub
-LAKE_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/datos_lago.csv"
-NEW_URL  = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/dataframe.csv"
-UMBRAL = 40.0
-RANDOM_STATE = 42
+# ===========================
+# Config de página y título
+# ===========================
+st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
+st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
 
-# Archivos guardados en el repo (se crean al entrenar)
-MODEL_PATH_H5    = "modelo_clorofila.h5"
-SCALER_REG_PATH  = "scaler_clorofila.gz"
+# ===========================
+# Rutas/URLs (lo que tenías)
+# ===========================
+# Lo que en tu script eran archivos locales ahora son URLs crudas de GitHub
+EXCEL_ORIG_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/DATOS_AMSA.csv"   # (antes: EXCEL_ORIG = 'DATOS AMSA.xlsx' / 'Hoja3')
+CSV_LIMPIO_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/datos_amsa.csv"
+CSV_FILTRADO_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/datos_filtrados.csv"
+PRED_REG_CSV_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/predicciones_clorofila.csv"
 
-# ==============================
-# Utilidades
-# ==============================
-def _strip_accents_lower(s: str) -> str:
-    if not isinstance(s, str):
-        s = str(s)
-    s = s.strip()
-    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
-    return "".join(ch for ch in s.lower() if ch.isalnum())
+# Nombres de salida locales (para descargas desde la app)
+MODEL_PATH = "modelo_clorofila.keras"
+SCALER_PATH = "scaler_clorofila.pkl"
+PRED_REG_CSV = "predicciones_clorofila_LOCAL.csv"
+PRED_CLASES_DESDE_REG = "predicciones_clases_desde_regresion_LOCAL.csv"
 
-def best_match_column(df_cols, aliases):
-    norm_map = {c: _strip_accents_lower(c) for c in df_cols}
-    alias_norm = [_strip_accents_lower(a) for a in aliases]
-    for raw, norm in norm_map.items():
-        if norm in alias_norm:
-            return raw
-    return None
+# ===========================
+# Columnas y opciones globales
+# ===========================
+columnas_entrada = [
+    "pH",
+    "Temperatura (°C)",
+    "Conductividad (μS/cm)",
+    "Oxígeno Disuelto (mg/L)",
+    "Turbidez (NTU)"
+]
+columna_salida = "Clorofila (μg/L)"
 
-@st.cache_data(show_spinner=False)
-def read_csv_commas_only(url: str) -> pd.DataFrame:
-    try:
-        return pd.read_csv(url, sep=",", encoding="utf-8", engine="python")
-    except Exception:
-        return pd.read_csv(url, sep=",", encoding="latin-1", engine="python")
+# ======= Sidebar: Banderas =======
+st.sidebar.header("⚙️ Controles")
+RUN_TRAIN_NN = st.sidebar.checkbox("Entrenar red neuronal (regresión)", value=True)
+RUN_CONFUSION_FROM_REGRESSION = st.sidebar.checkbox("Matriz de confusión desde regresión (umbrales)", value=True)
+RUN_RF = st.sidebar.checkbox("Baseline: RandomForestRegressor", value=True)
+RUN_KFOLD = st.sidebar.checkbox("KFold CV (NN regresión)", value=True)
+RUN_CLF = st.sidebar.checkbox("Clasificación directa (SVM/KNN, 4 clases)", value=True)
 
-def fig_small():
-    # tamaño pensado para 1/3 de pantalla dentro de st.columns(3)
-    return plt.subplots(figsize=(5.0, 3.4))
+st.sidebar.markdown("---")
+USE_ROBUST_SCALER = st.sidebar.selectbox("Scaler NN", ["RobustScaler", "StandardScaler"]) == "RobustScaler"
+Y_TRANSFORM = st.sidebar.selectbox("Transformación de y", ["log1p", "None"])
+LOSS = st.sidebar.selectbox("Función de pérdida NN", ["huber", "mse"])
 
-# ==============================
-# 1) Datos y limpieza
-# ==============================
-with st.expander("📦 Datos IBAGUA (CSV) y limpieza", expanded=True):
-    try:
-        raw = read_csv_commas_only(LAKE_URL)
-        st.success("CSV del lago cargado ✅")
-    except Exception as e:
-        st.error("No se pudo leer el CSV del lago.")
-        st.exception(e)
-        st.stop()
+# ===========================
+# Carga de datos (cache)
+# ===========================
+@st.cache_data(show_spinner=True)
+def cargar_csv(url: str) -> pd.DataFrame:
+    df = pd.read_csv(url)
+    return df
 
-    # Mapeo flexible de columnas
-    ALIASES = {
-        "Clorofila (µg/L)": ["Clorofila (µg/L)", "Clorofila (ug/L)", "clorofila", "chlorophyll"],
-        "Temperatura (°C)": ["Temperatura (°C)", "Temperatura (C)", "Temperatura", "temperature", "temp"],
-        "pH": ["pH", "ph"],
-        "Oxígeno Disuelto (mg/L)": ["Oxígeno Disuelto (mg/L)", "Oxigeno Disuelto (mg/L)", "DO (mg/L)", "OD (mg/L)", "dissolved oxygen"],
-        "Turbidez (NTU)": ["Turbidez (NTU)", "Turbiedad (NTU)", "turbidez", "turbidity", "ntu"],
-        "Conductividad (mS/cm)": ["Conductividad (mS/cm)", "Conductividad", "conductivity", "ms/cm", "mS/cm"],
-    }
-    auto_map = {}
-    for canonical, aliases in ALIASES.items():
-        found = best_match_column(list(raw.columns), aliases)
-        if found is not None:
-            auto_map[canonical] = found
+with st.expander("📥 Fuentes de datos (URLs)", expanded=False):
+    st.write("**EXCEL_ORIG_URL** (CSV derivado del Excel Hoja3):", EXCEL_ORIG_URL)
+    st.write("**CSV_LIMPIO_URL**:", CSV_LIMPIO_URL)
+    st.write("**CSV_FILTRADO_URL**:", CSV_FILTRADO_URL)
+    st.write("**PRED_REG_CSV_URL**:", PRED_REG_CSV_URL)
 
-    if len(auto_map) < len(ALIASES):
-        st.warning("Algunas columnas no se detectaron automáticamente. Elige manualmente:")
-    cols_list = list(raw.columns)
-    def picker(label, default_raw):
-        idx = cols_list.index(default_raw) if default_raw in cols_list else 0
-        return st.selectbox(label, cols_list, index=idx)
+# Usaremos por defecto el CSV limpio como dataset principal
+df = cargar_csv(CSV_LIMPIO_URL)
 
-    col_map = {}
-    for canonical in ALIASES.keys():
-        proposed = auto_map.get(canonical, None)
-        col_map[canonical] = picker(f"{canonical}", proposed if proposed else cols_list[0])
+# ===========================
+# Verificación/limpieza básicas
+# ===========================
+faltantes = [c for c in columnas_entrada + [columna_salida] if c not in df.columns]
+if faltantes:
+    st.error(f"Faltan columnas en el dataset: {faltantes}")
+    st.stop()
 
-    if len(set(col_map.values())) < len(col_map.values()):
-        st.error("La misma columna fue asignada a más de un campo. Corrige los selectores.")
-        st.stop()
+# A numérico + outlier clipping defensivo
+for col in columnas_entrada + [columna_salida]:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Limpieza
-    df = raw.copy()
-    target_col = col_map["Clorofila (µg/L)"]
-    df[target_col] = df[target_col].replace("NR", 0)  # solo objetivo
+for col in columnas_entrada:
+    lo, hi = df[col].quantile(0.01), df[col].quantile(0.99)
+    df[col] = df[col].clip(lo, hi)
 
-    df = df.apply(pd.to_numeric, errors="coerce").dropna().reset_index(drop=True)
+df = df.dropna(subset=columnas_entrada + [columna_salida]).reset_index(drop=True)
 
-    FEATURES = [
-        col_map["Temperatura (°C)"],
-        col_map["pH"],
-        col_map["Oxígeno Disuelto (mg/L)"],
-        col_map["Turbidez (NTU)"],
-        col_map["Conductividad (mS/cm)"],
-    ]
+# ===========================
+# Split base (compartido)
+# ===========================
+X = df[columnas_entrada].values
+y_real = df[columna_salida].values
 
-    X = df[FEATURES]
-    y = df[target_col].copy().reset_index(drop=True)
+if Y_TRANSFORM == "log1p":
+    y_trans = np.log1p(y_real)
+else:
+    y_trans = y_real.copy()
 
-    # Resumen ordenado
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Filas limpias", len(df))
-    c2.metric("Variables de entrada", len(FEATURES))
-    c3.metric("Columna objetivo", target_col)
+X_train, X_test, y_train_t, y_test_t = train_test_split(
+    X, y_trans, test_size=0.20, random_state=42
+)
 
-    st.subheader("Vista previa")
-    st.dataframe(df.head(20), use_container_width=True)
+# ===========================
+# Utilidad: Matriz de confusión bonita → FIG
+# ===========================
+def plot_confusion_matrix_pretty(cm, labels, title):
+    fig, ax = plt.subplots(figsize=(8, 7))
+    n = len(labels)
+    ax.set_xlim(-0.5, n-0.5); ax.set_ylim(n-0.5, -0.5)
+    ax.set_xticks(range(n)); ax.set_xticklabels(labels, rotation=20, ha="right")
+    ax.set_yticks(range(n)); ax.set_yticklabels(labels)
+    ax.set_title(title)
 
-    # Botón para generar todas las gráficas de datos
-    if st.button("📊 Generar gráficas de datos (todas)"):
-        # Hist y box del target + correlación simple
-        a, b, c = st.columns(3)
+    # Cuadrícula
+    for i in range(n+1):
+        ax.axhline(i-0.5, color="#888", lw=0.6, alpha=0.6)
+        ax.axvline(i-0.5, color="#888", lw=0.6, alpha=0.6)
 
-        with a:
-            fig, ax = fig_small()
-            ax.hist(y, bins=30)
-            ax.set_title("Hist: Clorofila (µg/L)")
-            ax.set_xlabel("µg/L"); ax.set_ylabel("Frecuencia")
-            st.pyplot(fig)
+    # Pintar SOLO la diagonal
+    for i in range(n):
+        ax.add_patch(Rectangle((i-0.5, i-0.5), 1, 1, facecolor="#78c679", alpha=0.35, edgecolor="none"))
 
-        with b:
-            fig, ax = fig_small()
-            ax.boxplot([df[f] for f in FEATURES], labels=[f.replace("(µg/L)","") for f in FEATURES], vert=True, showfliers=False)
-            ax.set_title("Boxplots (features)")
-            st.pyplot(fig)
+    # Números grandes
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, f"{cm[i, j]:,}", va="center", ha="center", fontsize=16, fontweight="bold")
 
-        with c:
-            corr = df[FEATURES + [target_col]].corr(numeric_only=True)
-            fig, ax = fig_small()
-            im = ax.imshow(corr, aspect="auto")
-            ax.set_xticks(range(len(corr.columns))); ax.set_xticklabels(corr.columns, rotation=60, ha="right")
-            ax.set_yticks(range(len(corr.index)));  ax.set_yticklabels(corr.index)
-            ax.set_title("Matriz de correlación")
-            fig.colorbar(im, ax=ax, shrink=0.8)
-            st.pyplot(fig)
+    ax.set_xlabel("Predicted label"); ax.set_ylabel("True label")
+    fig.tight_layout()
+    return fig
 
-# ==============================
-# 2) Tabs: Regresión y Clasificación
-# ==============================
-tab_reg, tab_clf = st.tabs(["🔵 Regresión (NN)", "🟠 Clasificación (SVM/KNN)"])
+# ===========================
+# Tabs para ordenar todas las figuras
+# ===========================
+tabs = st.tabs([
+    "📈 Regresión NN",
+    "🧩 Matriz desde Regresión",
+    "🌲 Random Forest (baseline)",
+    "🔁 K-Fold CV (NN)",
+    "🎯 Clasificación directa (SVM/KNN)"
+])
 
-# ---------- REGRESIÓN ----------
-with tab_reg:
-    st.subheader("Entrenamiento (NN) y gráficas")
+# ===========================
+# 1) REGRESIÓN NN
+# ===========================
+with tabs[0]:
+    st.subheader("📈 Regresión con Red Neuronal")
 
-    scaler_reg = StandardScaler()
-    X_scaled = scaler_reg.fit_transform(X)
-    X_ent, X_pru, y_ent, y_pru = train_test_split(X_scaled, y, test_size=0.2, random_state=RANDOM_STATE)
+    if RUN_TRAIN_NN:
+        scaler = RobustScaler() if USE_ROBUST_SCALER else StandardScaler()
+        X_train_s = scaler.fit_transform(X_train)
+        X_test_s  = scaler.transform(X_test)
 
-    def build_model(keras):
-        model = keras.Sequential([
-            keras.layers.Input(shape=(len(FEATURES),)),
-            keras.layers.Dense(64, activation='relu'),
-            keras.layers.Dense(32, activation='relu'),
-            keras.layers.Dense(16, activation='relu'),
-            keras.layers.Dense(1)
-        ])
-        model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_absolute_error'])
-        return model
+        def build_model(input_dim: int) -> keras.Model:
+            model = keras.Sequential([
+                layers.Input(shape=(input_dim,)),
+                layers.Dense(128, activation="relu"),
+                layers.Dropout(0.15),
+                layers.Dense(64, activation="relu"),
+                layers.Dense(1)
+            ])
+            loss_fn = Huber(delta=1.0) if LOSS == "huber" else "mse"
+            model.compile(optimizer=keras.optimizers.Adam(), loss=loss_fn, metrics=["mae"])
+            return model
 
-    if st.button("🚀 Entrenar modelo de regresión (y guardar)"):
-        with st.spinner("Importando TensorFlow y entrenando..."):
-            try:
-                import tensorflow as tf  # noqa: F401
-                from tensorflow import keras
-            except Exception as e:
-                st.error("No se pudo importar TensorFlow. Revisa requirements/runtime.")
-                st.exception(e)
-                st.stop()
+        model = build_model(X_train_s.shape[1])
 
-            y_ent_log = np.log1p(y_ent)
-            model = build_model(keras)
-            history = model.fit(
-                X_ent, y_ent_log,
-                validation_split=0.2,
-                epochs=300,
-                batch_size=8,
+        early_stop = EarlyStopping(monitor="val_loss", patience=25, restore_best_weights=True)
+        reduce_lr = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=1)
+
+        with st.spinner("Entrenando la red neuronal..."):
+            hist = model.fit(
+                X_train_s, y_train_t,
+                validation_split=0.20,
+                epochs=600,
+                batch_size=32,
+                callbacks=[early_stop, reduce_lr],
                 verbose=0
             )
 
-            # Guardar a disco para próximos deploys
-            model.save(MODEL_PATH_H5)
-            joblib.dump(scaler_reg, SCALER_REG_PATH)
+        # Curva de pérdida
+        fig_loss, ax = plt.subplots()
+        ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
+        ax.plot(hist.history["val_loss"], label="Pérdida validación")
+        ax.set_xlabel("Época"); ax.set_ylabel("Loss")
+        ax.set_title(f"Curva de entrenamiento (loss={LOSS}, y_transform={Y_TRANSFORM})")
+        ax.grid(True); ax.legend(); fig_loss.tight_layout()
+        st.pyplot(fig_loss, use_container_width=True)
 
-            # Guardar en sesión también
-            st.session_state["reg_model"] = model
-            st.session_state["reg_scaler"] = scaler_reg
+        # Predicciones y des-transformación
+        y_pred_train_t = model.predict(X_train_s, verbose=0).ravel()
+        y_pred_test_t  = model.predict(X_test_s,  verbose=0).ravel()
 
-            # Predicciones y métricas
-            y_pred_log = model.predict(X_pru)
-            y_pred = np.expm1(y_pred_log).ravel()
-            mse = mean_squared_error(y_pru, y_pred)
-            mae = mean_absolute_error(y_pru, y_pred)
-            st.success(f"Entrenado y guardado ✅ | MSE: {mse:.2f} | MAE: {mae:.2f}")
-
-            # === TODAS LAS GRÁFICAS (3 por fila) ===
-            r1, r2, r3 = st.columns(3)
-
-            with r1:
-                fig, ax = fig_small()
-                ax.plot(history.history['loss'], label='Train')
-                ax.plot(history.history['val_loss'], label='Val')
-                ax.set_title('Evolución del error')
-                ax.set_xlabel('Épocas'); ax.set_ylabel('MSE (log1p)')
-                ax.legend()
-                st.pyplot(fig)
-
-            with r2:
-                fig, ax = fig_small()
-                ax.scatter(y_pru, y_pred, s=14)
-                lo = float(np.min([y_pru.min(), y_pred.min()]))
-                hi = float(np.max([y_pru.max(), y_pred.max()]))
-                ax.plot([lo, hi], [lo, hi])
-                ax.set_title('Real vs Predicho')
-                ax.set_xlabel('Real (µg/L)'); ax.set_ylabel('Predicho (µg/L)')
-                st.pyplot(fig)
-
-            with r3:
-                fig, ax = fig_small()
-                ax.hist(y_pred, bins=30)
-                ax.set_title('Hist: y_pred (µg/L)')
-                ax.set_xlabel('µg/L'); ax.set_ylabel('Frecuencia')
-                st.pyplot(fig)
-
-# ---------- CLASIFICACIÓN ----------
-with tab_clf:
-    st.subheader("Clasificación por umbral (40 µg/L) y gráficas")
-
-    y_cls = (y > UMBRAL).astype(int)
-    X_tr, X_te, y_tr, y_te = train_test_split(X.values, y_cls.values, test_size=0.4,
-                                              random_state=RANDOM_STATE, stratify=y_cls.values)
-    scaler_clf = StandardScaler().fit(X_tr)
-    X_tr_s = scaler_clf.transform(X_tr)
-    X_te_s = scaler_clf.transform(X_te)
-
-    svm = SVC(kernel='rbf', probability=True, class_weight='balanced', C=1.0, gamma='scale', random_state=RANDOM_STATE).fit(X_tr_s, y_tr)
-    knn = KNeighborsClassifier(n_neighbors=7, weights='distance').fit(X_tr_s, y_tr)
-
-    st.session_state["clf_scaler"] = scaler_clf
-    st.session_state["clf_svm"] = svm
-    st.session_state["clf_knn"] = knn
-
-    if st.button("📊 Generar gráficas de clasificación (todas)"):
-        # 1) Validación cruzada (SVM + KNN)
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
-        svm_pipe = make_pipeline(StandardScaler(), SVC(kernel='rbf', probability=True, class_weight='balanced',
-                                                       C=1.0, gamma='scale', random_state=RANDOM_STATE))
-        knn_pipe = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights='distance'))
-
-        y_pred_svm_cv  = cross_val_predict(svm_pipe, X.values, y_cls.values, cv=cv)
-        y_proba_svm_cv = cross_val_predict(svm_pipe, X.values, y_cls.values, cv=cv, method='predict_proba')[:, 1]
-        y_pred_knn_cv  = cross_val_predict(knn_pipe, X.values, y_cls.values, cv=cv)
-
-        cm_svm = confusion_matrix(y_cls, y_pred_svm_cv, labels=[0,1])
-        cm_knn = confusion_matrix(y_cls, y_pred_knn_cv, labels=[0,1])
-
-        g1, g2, g3 = st.columns(3)
-
-        with g1:
-            fig, ax = fig_small()
-            ConfusionMatrixDisplay(cm_svm, display_labels=['Bajo (<40)', 'Alto (>40)']).plot(ax=ax, values_format='d')
-            ax.set_title('SVM (CV) - Confusión')
-            st.pyplot(fig)
-
-        with g2:
-            fig, ax = fig_small()
-            ConfusionMatrixDisplay(cm_knn, display_labels=['Bajo (<40)', 'Alto (>40)']).plot(ax=ax, values_format='d')
-            ax.set_title('KNN (CV) - Confusión')
-            st.pyplot(fig)
-
-        with g3:
-            # Reporte SVM texto
-            rep = classification_report(y_cls, y_pred_svm_cv, target_names=['Bajo (<40)','Alto (>40)'], zero_division=0)
-            st.markdown("**SVM (CV) – ROC-AUC:** {:.3f}".format(roc_auc_score(y_cls, y_proba_svm_cv)))
-            st.text(rep)
-
-        # 2) Hold-out (SVM + KNN)
-        h1, h2, h3 = st.columns(3)
-
-        def plot_holdout(model, Xs, y_true, titulo):
-            fig, ax = fig_small()
-            cm = confusion_matrix(y_true, model.predict(Xs), labels=[0,1])
-            ConfusionMatrixDisplay(cm, display_labels=['Bajo (<40)','Alto (>40)']).plot(ax=ax, values_format='d')
-            ax.set_title(titulo)
-            return fig
-
-        with h1:
-            st.pyplot(plot_holdout(svm, X_te_s, y_te, "SVM (hold-out)"))
-
-        with h2:
-            st.pyplot(plot_holdout(knn, X_te_s, y_te, "KNN (hold-out)"))
-
-        with h3:
-            prc, rcl, f1, _ = precision_recall_fscore_support(y_te, svm.predict(X_te_s), labels=[0,1], zero_division=0)
-            try:
-                auc = roc_auc_score(y_te, svm.predict_proba(X_te_s)[:,1])
-            except Exception:
-                auc = np.nan
-            st.markdown(f"**SVM hold-out** → Precision[Bajo,Alto]={prc[0]:.3f}, {prc[1]:.3f} | "
-                        f"Recall[Bajo,Alto]={rcl[0]:.3f}, {rcl[1]:.3f} | F1[Bajo,Alto]={f1[0]:.3f}, {f1[1]:.3f} | ROC-AUC={auc:.3f}")
-
-# ==============================
-# 3) Nuevos 50 (CSV) + descarga
-# ==============================
-with st.expander("🟢 Nuevos 50 (CSV)", expanded=False):
-    use_repo_new = st.checkbox("Usar CSV del repo (NEW_URL)", value=True)
-    nuevo = None
-    if use_repo_new:
-        try:
-            nuevo = read_csv_commas_only(NEW_URL)
-            st.success("CSV nuevo cargado desde el repo ✅")
-        except Exception as e:
-            st.error("No se pudo leer el NEW_URL.")
-            st.exception(e)
-    else:
-        up = st.file_uploader("Sube CSV separado por comas", type=["csv"])
-        if up is not None:
-            try:
-                nuevo = pd.read_csv(up, sep=",", encoding="utf-8")
-            except Exception:
-                up.seek(0); nuevo = pd.read_csv(up, sep=",", encoding="latin-1")
-
-    if nuevo is not None:
-        # mapear columnas del nuevo dataset usando FEATURES ya definidas
-        for c in FEATURES:
-            nuevo[c] = pd.to_numeric(nuevo.get(c, np.nan), errors="coerce")
-        df50 = nuevo[FEATURES].head(50).dropna().copy()
-        st.write(f"Filas válidas entre los primeros 50: **{len(df50)}**")
-        st.dataframe(df50.head(10), use_container_width=True)
-
-        # Modelo/Scaler de regresión (de sesión o disco)
-        reg_model = st.session_state.get("reg_model", None)
-        reg_scaler = st.session_state.get("reg_scaler", None)
-        if reg_model is None or reg_scaler is None:
-            try:
-                import tensorflow as tf  # import on demand
-                if os.path.exists(MODEL_PATH_H5) and os.path.exists(SCALER_REG_PATH):
-                    reg_model = tf.keras.models.load_model(MODEL_PATH_H5)
-                    reg_scaler = joblib.load(SCALER_REG_PATH)
-            except Exception as e:
-                st.info("No hay modelo/scaler guardados todavía. Entrena en la pestaña azul.")
-                st.exception(e)
-
-        out = df50.copy()
-
-        if reg_model is not None and reg_scaler is not None:
-            X50 = reg_scaler.transform(df50.values)
-            y50_log = reg_model.predict(X50)
-            chl50 = np.expm1(y50_log).ravel()
-            chl50 = np.clip(chl50, 0, None)
-            out["Clorofila predicha (µg/L)"] = chl50
-
-            gA, gB, gC = st.columns(3)
-            with gA:
-                fig, ax = fig_small()
-                ax.plot(range(len(chl50)), chl50)
-                ax.set_title('Serie clorofila (50)')
-                ax.set_xlabel('Índice'); ax.set_ylabel('µg/L')
-                st.pyplot(fig)
-            with gB:
-                fig, ax = fig_small()
-                ax.hist(chl50, bins=15)
-                ax.set_title('Hist clorofila (50)')
-                ax.set_xlabel('µg/L'); ax.set_ylabel('Frecuencia')
-                st.pyplot(fig)
-            with gC:
-                fig, ax = fig_small()
-                ax.scatter(out[FEATURES[3]], out["Clorofila predicha (µg/L)"], alpha=0.75)
-                ax.set_title(f'{FEATURES[3]} vs clorofila')
-                ax.set_xlabel(FEATURES[3]); ax.set_ylabel('Clorofila (µg/L)')
-                st.pyplot(fig)
-
-            out["Clase por regresión (>40)"] = np.where(chl50 > UMBRAL, "Alto (>40)", "Bajo (<40)")
-
-        # Clasificadores si están entrenados
-        if "clf_scaler" in st.session_state and "clf_svm" in st.session_state and "clf_knn" in st.session_state:
-            X50c = st.session_state["clf_scaler"].transform(df50.values)
-            out["Clase SVM"] = np.where(st.session_state["clf_svm"].predict(X50c)==1, "Alto (>40)", "Bajo (<40)")
-            out["Clase KNN"] = np.where(st.session_state["clf_knn"].predict(X50c)==1, "Alto (>40)", "Bajo (<40)")
+        if Y_TRANSFORM == "log1p":
+            y_true_test = np.expm1(y_test_t)
+            y_pred_test = np.expm1(y_pred_test_t)
         else:
-            st.info("Entrena los clasificadores en la pestaña naranja para etiquetar SVM/KNN.")
+            y_true_test = y_test_t
+            y_pred_test = y_pred_test_t
 
-        st.subheader("Resultados (primeros 50)")
-        st.dataframe(out, use_container_width=True)
+        mse  = mean_squared_error(y_true_test, y_pred_test)
+        rmse = np.sqrt(mse)
+        mae  = mean_absolute_error(y_true_test, y_pred_test)
+        r2   = r2_score(y_true_test, y_pred_test)
 
-        # Descargar
-        csv_bytes = out.to_csv(index=False).encode("utf-8-sig")
-        st.download_button("💾 Descargar resultados (CSV)", data=csv_bytes,
-                           file_name="predicciones_dataframe_clf.csv", mime="text/csv")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("MSE (test)", f"{mse:.3f}")
+        col2.metric("RMSE (test)", f"{rmse:.3f}")
+        col3.metric("MAE (test)", f"{mae:.3f}")
+        col4.metric("R² (test)", f"{r2:.3f}")
 
-# ==============================
-# Requisitos sugeridos
-# ==============================
-st.caption("requirements.txt: streamlit, pandas, numpy, scikit-learn, matplotlib, requests, joblib, tensorflow-cpu")
+        # Guardado local + botón de descarga
+        # Modelo
+        model.save(MODEL_PATH)
+        with open(MODEL_PATH, "rb") as f:
+            st.download_button("⬇️ Descargar modelo (.keras)", data=f, file_name=MODEL_PATH, mime="application/octet-stream")
+        # Scaler
+        joblib.dump(scaler, SCALER_PATH)
+        with open(SCALER_PATH, "rb") as f:
+            st.download_button("⬇️ Descargar scaler (.pkl)", data=f, file_name=SCALER_PATH, mime="application/octet-stream")
+        # Predicciones
+        df_preds = pd.DataFrame({
+            "Clorofila_real (μg/L)": y_true_test,
+            "Clorofila_predicha (μg/L)": y_pred_test
+        })
+        csv_bytes = df_preds.to_csv(index=False).encode("utf-8")
+        st.download_button("⬇️ Descargar predicciones (CSV)", data=csv_bytes, file_name=PRED_REG_CSV, mime="text/csv")
+
+    else:
+        st.info("Activa **Entrenar red neuronal (regresión)** en el panel lateral para ver esta sección.")
+
+# ===========================
+# 2) MATRIZ DESDE REGRESIÓN
+# ===========================
+with tabs[1]:
+    st.subheader("🧩 Matriz de confusión (Regresión → Rangos)")
+
+    if RUN_TRAIN_NN and RUN_CONFUSION_FROM_REGRESSION:
+        bins = [0, 2, 7, 40, np.inf]
+        labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
+
+        y_true_clf_reg = pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False)
+        y_pred_clf_reg = pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False)
+
+        cm_reg = confusion_matrix(y_true_clf_reg, y_pred_clf_reg, labels=labels_bins)
+        fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
+        st.pyplot(fig_cm, use_container_width=True)
+
+        # Reporte
+        st.code(classification_report(y_true_clf_reg, y_pred_clf_reg, target_names=labels_bins, digits=3))
+
+        # Descarga CSV de clases
+        df_cls = pd.DataFrame({
+            "Clorofila_real (µg/L)": y_true_test,
+            "Clase_real": y_true_clf_reg.values,
+            "Clorofila_predicha (µg/L)": y_pred_test,
+            "Clase_predicha": y_pred_clf_reg.values
+        })
+        st.download_button("⬇️ Descargar clases desde regresión (CSV)",
+                           data=df_cls.to_csv(index=False).encode("utf-8"),
+                           file_name=PRED_CLASES_DESDE_REG,
+                           mime="text/csv")
+    else:
+        st.info("Activa **Regresión NN** y **Matriz desde regresión** para visualizar.")
+
+# ===========================
+# 3) RANDOM FOREST (BASELINE)
+# ===========================
+with tabs[2]:
+    st.subheader("🌲 Baseline: RandomForestRegressor")
+
+    if RUN_RF:
+        X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(
+            X, y_real, test_size=0.20, random_state=42
+        )
+        rf = RandomForestRegressor(n_estimators=600, random_state=42, n_jobs=-1)
+        with st.spinner("Entrenando RandomForest..."):
+            rf.fit(X_train_rf, y_train_rf)
+        y_pred_rf = rf.predict(X_test_rf)
+
+        mse_rf  = mean_squared_error(y_test_rf, y_pred_rf)
+        rmse_rf = np.sqrt(mse_rf)
+        mae_rf  = mean_absolute_error(y_test_rf, y_pred_rf)
+        r2_rf   = r2_score(y_test_rf, y_pred_rf)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("MSE (test)", f"{mse_rf:.2f}")
+        c2.metric("RMSE (test)", f"{rmse_rf:.2f}")
+        c3.metric("MAE (test)", f"{mae_rf:.2f}")
+        c4.metric("R² (test)", f"{r2_rf:.3f}")
+
+        # Importancia de características
+        imp = pd.Series(rf.feature_importances_, index=columnas_entrada).sort_values(ascending=False)
+        fig_imp, ax = plt.subplots(figsize=(6,4))
+        imp.plot(kind="bar", ax=ax)
+        ax.set_title("Importancia de características (RF)")
+        ax.set_ylabel("Importancia")
+        ax.grid(True, axis="y", alpha=0.4)
+        fig_imp.tight_layout()
+        st.pyplot(fig_imp, use_container_width=True)
+
+        st.dataframe(imp.reset_index().rename(columns={"index":"Feature", 0:"Importance"}), use_container_width=True)
+    else:
+        st.info("Activa **RandomForestRegressor** para visualizar.")
+
+# ===========================
+# 4) K-FOLD CV (NN REGRESIÓN)
+# ===========================
+with tabs[3]:
+    st.subheader("🔁 Validación Cruzada (K=5) para NN de Regresión")
+
+    if RUN_KFOLD:
+        X_raw = X.copy()
+        y_raw = y_real.copy()
+
+        def nn_builder(input_dim):
+            m = keras.Sequential([
+                layers.Input(shape=(input_dim,)),
+                layers.Dense(128, activation="relu"),
+                layers.Dropout(0.15),
+                layers.Dense(64, activation="relu"),
+                layers.Dense(1)
+            ])
+            m.compile(optimizer=keras.optimizers.Adam(), loss=Huber(), metrics=["mae"])
+            return m
+
+        kf = KFold(n_splits=5, shuffle=True, random_state=42)
+        metrics = []
+
+        progress = st.progress(0.0, text="Ejecutando K-Fold...")
+        for fold, (tr_idx, te_idx) in enumerate(kf.split(X_raw), start=1):
+            X_tr, X_te = X_raw[tr_idx], X_raw[te_idx]
+            y_tr, y_te = y_raw[tr_idx], y_raw[te_idx]
+
+            if Y_TRANSFORM == "log1p":
+                y_tr_t = np.log1p(y_tr)
+                y_te_t = np.log1p(y_te)
+            else:
+                y_tr_t = y_tr.copy()
+                y_te_t = y_te.copy()
+
+            scaler_cv = RobustScaler() if USE_ROBUST_SCALER else StandardScaler()
+            X_tr_s = scaler_cv.fit_transform(X_tr)
+            X_te_s = scaler_cv.transform(X_te)
+
+            model_cv = nn_builder(X_tr_s.shape[1])
+            es = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
+            rl = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=8, min_lr=1e-6, verbose=0)
+            model_cv.fit(X_tr_s, y_tr_t, validation_split=0.2, epochs=300, batch_size=32, verbose=0, callbacks=[es, rl])
+
+            y_pred_t = model_cv.predict(X_te_s, verbose=0).ravel()
+            y_pred = np.expm1(y_pred_t) if Y_TRANSFORM == "log1p" else y_pred_t
+
+            mse  = mean_squared_error(y_te, y_pred)
+            rmse = np.sqrt(mse)
+            mae  = mean_absolute_error(y_te, y_pred)
+            r2   = r2_score(y_te, y_pred)
+            metrics.append((fold, mse, rmse, mae, r2))
+
+            progress.progress(fold/5.0, text=f"Fold {fold}/5 completado")
+
+        df_cv = pd.DataFrame(metrics, columns=["Fold","MSE","RMSE","MAE","R2"])
+        st.dataframe(df_cv.style.format({"MSE":"{:.2f}","RMSE":"{:.2f}","MAE":"{:.2f}","R2":"{:.3f}"}),
+                     use_container_width=True)
+
+        st.write("**Promedios ± std:**")
+        st.write(f"- MSE : {df_cv['MSE'].mean():.2f} ± {df_cv['MSE'].std():.2f}")
+        st.write(f"- RMSE: {df_cv['RMSE'].mean():.2f} ± {df_cv['RMSE'].std():.2f}")
+        st.write(f"- MAE : {df_cv['MAE'].mean():.2f} ± {df_cv['MAE'].std():.2f}")
+        st.write(f"- R²  : {df_cv['R2'].mean():.3f} ± {df_cv['R2'].std():.3f}")
+
+        st.download_button("⬇️ Descargar métricas K-Fold (CSV)",
+                           data=df_cv.to_csv(index=False).encode("utf-8"),
+                           file_name="kfold_metrics.csv",
+                           mime="text/csv")
+    else:
+        st.info("Activa **K-Fold CV (NN)** para visualizar.")
+
+# ===========================
+# 5) CLASIFICACIÓN DIRECTA (SVM/KNN, 4 clases)
+# ===========================
+with tabs[4]:
+    st.subheader("🎯 Clasificación directa (SVM/KNN) — 4 clases")
+
+    if RUN_CLF:
+        bins = [0, 2, 7, 40, np.inf]
+        labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
+
+        # Etiquetas de clase desde y_real
+        y_cls_all = pd.cut(y_real, bins=bins, labels=labels_bins, right=False)
+
+        # Coherencia de splits con la NN
+        X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(
+            X, y_real, test_size=0.20, random_state=42
+        )
+        y_train_cls = pd.cut(y_train_rf, bins=bins, labels=labels_bins, right=False)
+        y_test_cls  = pd.cut(y_test_rf,  bins=bins, labels=labels_bins, right=False)
+
+        # Pipelines
+        svm_clf = make_pipeline(StandardScaler(),
+                                SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", random_state=42))
+        knn_clf = make_pipeline(StandardScaler(),
+                                KNeighborsClassifier(n_neighbors=7, weights="distance"))
+
+        with st.spinner("Entrenando SVM y KNN..."):
+            svm_clf.fit(X_train_rf, y_train_cls)
+            knn_clf.fit(X_train_rf, y_train_cls)
+
+        y_pred_svm = svm_clf.predict(X_test_rf)
+        y_pred_knn = knn_clf.predict(X_test_rf)
+
+        cm_svm = confusion_matrix(y_test_cls, y_pred_svm, labels=labels_bins)
+        cm_knn = confusion_matrix(y_test_cls, y_pred_knn, labels=labels_bins)
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            fig_svm = plot_confusion_matrix_pretty(cm_svm, labels_bins, "Matriz de confusión — SVM (4 clases)")
+            st.pyplot(fig_svm, use_container_width=True)
+            st.code("Reporte SVM:\n" + classification_report(y_test_cls, y_pred_svm, target_names=labels_bins, digits=3))
+        with col_b:
+            fig_knn = plot_confusion_matrix_pretty(cm_knn, labels_bins, "Matriz de confusión — KNN (4 clases)")
+            st.pyplot(fig_knn, use_container_width=True)
+            st.code("Reporte KNN:\n" + classification_report(y_test_cls, y_pred_knn, target_names=labels_bins, digits=3))
+    else:
+        st.info("Activa **Clasificación directa (SVM/KNN)** para visualizar.")
