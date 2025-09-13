@@ -189,7 +189,7 @@ tabs = st.tabs([
     "🧩 Matriz desde Regresión",
     "🌲 Random Forest (baseline)",
     "🔁 K-Fold CV (NN)",
-    "🎯 Clasificación directa (SVM/KNN)"
+    "🎯 Clasificación directa (SVM/KNN)",
     "🧐 Visualización de nuevas predicciones"
 ])
 
