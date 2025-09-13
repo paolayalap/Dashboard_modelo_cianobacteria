@@ -256,3 +256,46 @@ with tabs[0]:
 
     else:
         st.info("Activa **Entrenar red neuronal (regresión)** en el panel lateral para ver esta sección.")
+
+# ===========================
+# 2) MATRIZ DESDE REGRESIÓN
+# ===========================
+with tabs[1]:
+    st.subheader("🧩 Matriz de confusión (Regresión → Rangos)")
+
+    if RUN_TRAIN_NN and RUN_CONFUSION_FROM_REGRESSION:
+        bins = [0, 2, 7, 40, np.inf]
+        labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
+
+        y_true_clf_reg = pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False)
+        y_pred_clf_reg = pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False)
+
+        cm_reg = confusion_matrix(y_true_clf_reg, y_pred_clf_reg, labels=labels_bins)
+        fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
+        st.pyplot(fig_cm, use_container_width=True)
+
+        # -------- FIX AQUÍ --------
+        rep_reg = classification_report(
+            y_true_clf_reg, y_pred_clf_reg,
+            labels=labels_bins,        # fuerza las 4 clases en el orden dado
+            target_names=labels_bins,  # nombres alineados
+            digits=3,
+            zero_division=0            # evita ValueError cuando una clase no aparece
+        )
+        st.code(rep_reg)
+        # --------------------------
+
+        # Descarga CSV de clases
+        df_cls = pd.DataFrame({
+            "Clorofila_real (µg/L)": y_true_test,
+            "Clase_real": y_true_clf_reg.values,
+            "Clorofila_predicha (µg/L)": y_pred_test,
+            "Clase_predicha": y_pred_clf_reg.values
+        })
+        st.download_button("⬇️ Descargar clases desde regresión (CSV)",
+                           data=df_cls.to_csv(index=False).encode("utf-8"),
+                           file_name=PRED_CLASES_DESDE_REG,
+                           mime="text/csv")
+    else:
+        st.info("Activa **Regresión NN** y **Matriz desde regresión** para visualizar.")
+
