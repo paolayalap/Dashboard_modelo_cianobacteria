@@ -53,13 +53,22 @@ from keras.losses import Huber
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from matplotlib.patches import Rectangle
 
+from datetime import datetime
+import pathlib
+
+STAMP_VER = "v1.0.5"  # súbelo un número
+_this = pathlib.Path(__file__)
+st.info(f"🔖 Build check: {STAMP_VER} | file={_this.name} | mtime={datetime.fromtimestamp(_this.stat().st_mtime).isoformat(' ', 'seconds')}")
+st.sidebar.caption(f"Archivo en ejecución: {_this}")
+
+
 # ===========================
 # Config de página y título
 # ===========================
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
 st.caption("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
-st.info("🔖 Build check: v1.0.3")
+#st.info("🔖 Build check: v1.0.3")
 
 
 # ===========================
@@ -190,9 +199,10 @@ tabs = st.tabs([
     "🌲 Random Forest (baseline)",
     "🔁 K-Fold CV (NN)",
     "🎯 Clasificación directa (SVM/KNN)",
-    "🧐 Visualización de nuevas predicciones"
+    "🧐 Visualización de nuevas predicciones",
 ])
-st.caption(f"Número de pestañas: {len(tabs)}")
+if len(tabs) != 6:
+    st.error(f"Esperaba 6 pestañas pero hay {len(tabs)}. ¿Guardaste el archivo y reiniciaste la app?")
 
 # ===========================
 # 1) REGRESIÓN NN
