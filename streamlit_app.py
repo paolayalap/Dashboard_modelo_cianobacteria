@@ -258,13 +258,14 @@ with tabs[1]:
             digits=3, zero_division=0
         )
         st.code(rep_reg)
-
+        
         df_cls = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
-            "Clase_real": y_true_clf_reg,
+            "Clase_real": pd.Series(y_true_clf_reg).astype("string"),
             "Clorofila_predicha (µg/L)": y_pred_test,
-            "Clase_predicha": y_pred_clf_reg,
+            "Clase_predicha": pd.Series(y_pred_clf_reg).astype("string"),
         })
+
         st.download_button("⬇️ Descargar clases desde regresión (CSV)",
                            data=df_cls.to_csv(index=False).encode("utf-8"),
                            file_name=PRED_CLASES_DESDE_REG, mime="text/csv")
