@@ -547,12 +547,39 @@ with tabs[5]:
         # Solo seguimos si tenemos ambos
         if model_infer is not None and scaler_infer is not None:
             # --- Carga de CSV nuevo ---
-            up_csv = st.file_uploader("Cargar CSV con **nuevos** datos (sin clorofila)", type=["csv"], key="csv_newdata")
+            up_csv = st.file_uploader(
+                "Cargar CSV con **nuevos** datos (sin clorofila)", type=["csv"], key="csv_newdata"
+            )
             if up_csv is None:
                 st.info("Sube un CSV para ver matrices y tabla de resultados.")
-            else:
-                # Lectura y validación
-                df_new = pd.read_csv(up_csv)
+                st.stop()
+            
+            def read_csv_robust(uploaded):
+                encodings = ["utf-8", "utf-8-sig", "latin1", "cp1252", "iso-8859-1"]
+                seps = [None, ",", ";", "\t", "|"]   # None = autodetect con engine='python'
+                for enc in encodings:
+                    for sep in seps:
+                        try:
+                            uploaded.seek(0)  # reubicar puntero
+                            df = pd.read_csv(
+                                uploaded,
+                                encoding=enc,
+                                sep=sep,
+                                engine="python" if sep is None else "c"
+                            )
+                            return df
+                        except UnicodeDecodeError:
+                            continue
+                        except Exception:
+                            # ParserError u otros -> probamos siguiente combinación
+                            continue
+                return None
+            
+            df_new = read_csv_robust(up_csv)
+            if df_new is None:
+                st.error("No pude leer el CSV. Guarda como UTF-8 (o UTF-8 con BOM) y usa coma/; como separador.")
+                st.stop()
+
 
                 def _normalize_cols(df: pd.DataFrame) -> pd.DataFrame:
                     mapping = {
@@ -579,6 +606,11 @@ with tabs[5]:
                     st.error(f"Faltan columnas requeridas: {faltantes_new}")
                 else:
                     for c in req:
+                        df_new[c] = (
+                            df_new[c].astype(str)
+                                      .str.replace("\u00A0", "", regex=False)  # NBSP de Excel
+                                      .str.replace(",", ".", regex=False)      # coma -> punto
+                        )
                         df_new[c] = pd.to_numeric(df_new[c], errors="coerce")
                     n0 = len(df_new)
                     df_new = df_new.dropna(subset=req).reset_index(drop=True)
