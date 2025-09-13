@@ -192,6 +192,7 @@ tabs = st.tabs([
     "🎯 Clasificación directa (SVM/KNN)",
     "🧐 Visualización de nuevas predicciones"
 ])
+st.caption(f"Número de pestañas: {len(tabs)}")
 
 # ===========================
 # 1) REGRESIÓN NN
