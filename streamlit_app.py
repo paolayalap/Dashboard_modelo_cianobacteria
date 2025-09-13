@@ -14,6 +14,24 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import streamlit as st
+import pathlib, re, textwrap, sys
+
+# --- Depurador: localiza cualquier ".values" peligroso en este archivo ---
+try:
+    src_path = pathlib.Path(__file__)
+    src = src_path.read_text(encoding="utf-8")
+    bads = [m.start() for m in re.finditer(r"y_(?:true|pred)_clf_reg\.values", src)]
+    if bads:
+        ln = src[:bads[0]].count("\n") + 1
+        snippet = "\n".join(src.splitlines()[max(0, ln-4): ln+4])
+        import streamlit as st
+        st.error(f"⚠️ Hay una referencia a '.values' en la línea {ln} de {src_path.name}. "
+                 "Reemplázala por pd.Series(...).astype('string').\n\n"
+                 "Fragmento actual:\n" + snippet)
+        st.stop()
+except Exception:
+    pass
+
 
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.preprocessing import StandardScaler, RobustScaler
@@ -40,6 +58,8 @@ from matplotlib.patches import Rectangle
 # ===========================
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
+st.info("🔖 Build check: v1.0.3")
+
 
 # ===========================
 # Rutas/URLs (lo que tenías)
@@ -262,40 +282,41 @@ with tabs[0]:
 # ===========================
 with tabs[1]:
     st.subheader("🧩 Matriz de confusión (Regresión → Rangos)")
-
-    if RUN_TRAIN_NN and RUN_CONFUSION_FROM_REGRESSION:
+    if RUN_TRAIN_NN and 'model' in locals():
         bins = [0, 2, 7, 40, np.inf]
         labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
 
-        y_true_clf_reg = pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False)
-        y_pred_clf_reg = pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False)
+        # Convertir a Series de tipo string (NO usar .values)
+        y_true_bins = pd.Series(
+            pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False),
+            dtype="string"
+        )
+        y_pred_bins = pd.Series(
+            pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False),
+            dtype="string"
+        )
 
-        cm_reg = confusion_matrix(y_true_clf_reg, y_pred_clf_reg, labels=labels_bins)
+        cm_reg = confusion_matrix(y_true_bins, y_pred_bins, labels=labels_bins)
         fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
         st.pyplot(fig_cm, use_container_width=True)
 
-        # -------- FIX AQUÍ --------
         rep_reg = classification_report(
-            y_true_clf_reg, y_pred_clf_reg,
-            labels=labels_bins,        # fuerza las 4 clases en el orden dado
-            target_names=labels_bins,  # nombres alineados
-            digits=3,
-            zero_division=0            # evita ValueError cuando una clase no aparece
+            y_true_bins, y_pred_bins,
+            labels=labels_bins, target_names=labels_bins,
+            digits=3, zero_division=0
         )
         st.code(rep_reg)
-        # --------------------------
 
-        # Descarga CSV de clases
-        df_cls = pd.DataFrame({
+        # CSV de clases — SIN .values
+        df_cls_reg = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
-            "Clase_real": y_true_clf_reg.values,
+            "Clase_real": y_true_bins,
             "Clorofila_predicha (µg/L)": y_pred_test,
-            "Clase_predicha": y_pred_clf_reg.values
+            "Clase_predicha": y_pred_bins,
         })
         st.download_button("⬇️ Descargar clases desde regresión (CSV)",
-                           data=df_cls.to_csv(index=False).encode("utf-8"),
+                           data=df_cls_reg.to_csv(index=False).encode("utf-8"),
                            file_name=PRED_CLASES_DESDE_REG,
                            mime="text/csv")
     else:
-        st.info("Activa **Regresión NN** y **Matriz desde regresión** para visualizar.")
-
+        st.info("Entrena la **Regresión NN** para habilitar esta pestaña.")
