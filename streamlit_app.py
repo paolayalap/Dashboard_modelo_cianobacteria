@@ -1,13 +1,11 @@
 # ============================================
-# Página: Modelado y Clasificación (Clorofila)
-# Incluye: entrenamiento, evaluación y
-#          PREDICCIÓN en CSV externo sin clorofila
+# Dashboard cyanobacteria — Modelos y Clasificación
+# Entrenamiento, evaluación y PREDICCIÓN en CSV externo
 # ============================================
 
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
-import io
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -53,16 +51,60 @@ PRED_REG_CSV = "predicciones_clorofila_LOCAL.csv"
 PRED_CLASES_DESDE_REG = "predicciones_clases_desde_regresion_LOCAL.csv"
 
 # ---------------------------
-# Columnas y opciones
+# Columnas esperadas
 # ---------------------------
 columnas_entrada = [
     "pH",
     "Temperatura (°C)",
-    "Conductividad (µS/cm)",   # <- micro 'µ' (U+00B5)
+    "Conductividad (µS/cm)",   # normalizamos a µ (U+00B5)
     "Oxígeno Disuelto (mg/L)",
     "Turbidez (NTU)"
 ]
 columna_salida = "Clorofila (μg/L)"
+
+# ---------------------------
+# Normalización de nombres
+# ---------------------------
+def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Normaliza nombres de columnas a los esperados por la app."""
+    mapping = {
+        "ph": "pH",
+
+        "temperatura": "Temperatura (°C)",
+        "temperatura (c)": "Temperatura (°C)",
+        "temp (°c)": "Temperatura (°C)",
+        "temp": "Temperatura (°C)",
+
+        "conductividad": "Conductividad (µS/cm)",
+        "conductividad (us/cm)": "Conductividad (µS/cm)",
+        "conductividad (μs/cm)": "Conductividad (µS/cm)",
+        "conductividad (µs/cm)": "Conductividad (µS/cm)",
+        "ec (us/cm)": "Conductividad (µS/cm)",
+        "ec (µs/cm)": "Conductividad (µS/cm)",
+        "ec": "Conductividad (µS/cm)",
+
+        "oxígeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
+        "oxigeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
+        "do (mg/l)": "Oxígeno Disuelto (mg/L)",
+        "oxígeno disuelto": "Oxígeno Disuelto (mg/L)",
+        "oxigeno disuelto": "Oxígeno Disuelto (mg/L)",
+
+        "turbidez (ntu)": "Turbidez (NTU)",
+        "turbiedad (ntu)": "Turbidez (NTU)",
+        "turbidez": "Turbidez (NTU)",
+        "turbiedad": "Turbidez (NTU)",
+
+        "clorofila (µg/l)": "Clorofila (μg/L)",
+        "clorofila (μg/l)": "Clorofila (μg/L)",
+        "chlorophyll a (µg/l)": "Clorofila (μg/L)",
+        "chlorophyll-a": "Clorofila (μg/L)",
+        "chlorophyll": "Clorofila (μg/L)",
+    }
+    ren = {}
+    for c in df.columns:
+        key = c.strip().lower()
+        ren[c] = mapping.get(key, c)
+    return df.rename(columns=ren)
 
 # ======= Sidebar: Banderas =======
 st.sidebar.header("⚙️ Controles")
@@ -90,7 +132,9 @@ with st.expander("📥 Fuentes de datos (URLs)", expanded=False):
     st.write("**CSV_FILTRADO_URL**:", CSV_FILTRADO_URL)
     st.write("**PRED_REG_CSV_URL**:", PRED_REG_CSV_URL)
 
+# Dataset principal
 df = cargar_csv(CSV_LIMPIO_URL)
+df = normalize_columns(df)
 
 # ---------------------------
 # Limpieza básica
@@ -212,6 +256,9 @@ with tabs[0]:
             y_true_test = y_test_t
             y_pred_test = y_pred_test_t
 
+        # Evita valores negativos por ruido numérico antes de clasificar
+        y_pred_test = np.clip(y_pred_test, 0.0, None)
+
         mse  = mean_squared_error(y_true_test, y_pred_test)
         rmse = np.sqrt(mse)
         mae  = mean_absolute_error(y_true_test, y_pred_test)
@@ -264,11 +311,12 @@ with tabs[1]:
         )
         st.code(rep_reg)
 
+        # <-- CORREGIDO: sin usar .values en Categorical
         df_cls = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
-            "Clase_real": y_true_clf_reg.values,
+            "Clase_real": pd.Series(y_true_clf_reg).astype("string"),
             "Clorofila_predicha (µg/L)": y_pred_test,
-            "Clase_predicha": y_pred_clf_reg.values
+            "Clase_predicha": pd.Series(y_pred_clf_reg).astype("string"),
         })
         st.download_button("⬇️ Descargar clases desde regresión (CSV)",
                            data=df_cls.to_csv(index=False).encode("utf-8"),
@@ -357,6 +405,7 @@ with tabs[3]:
 
             y_pred_t = model_cv.predict(X_te_s, verbose=0).ravel()
             y_pred = np.expm1(y_pred_t) if Y_TRANSFORM == "log1p" else y_pred_t
+            y_pred = np.clip(y_pred, 0.0, None)
 
             mse  = mean_squared_error(y_te, y_pred)
             rmse = np.sqrt(mse)
@@ -411,14 +460,18 @@ with tabs[4]:
             fig_svm = plot_confusion_matrix_pretty(cm_svm, labels_bins, "Matriz de confusión — SVM (4 clases)")
             st.pyplot(fig_svm, use_container_width=True)
             rep_svm = classification_report(
-                y_test_cls, y_pred_svm, labels=labels_bins, target_names=labels_bins, digits=3, zero_division=0
+                y_test_cls, y_pred_svm,
+                labels=labels_bins, target_names=labels_bins,
+                digits=3, zero_division=0
             )
             st.code(rep_svm)
         with col_b:
             fig_knn = plot_confusion_matrix_pretty(cm_knn, labels_bins, "Matriz de confusión — KNN (4 clases)")
             st.pyplot(fig_knn, use_container_width=True)
             rep_knn = classification_report(
-                y_test_cls, y_pred_knn, labels=labels_bins, target_names=labels_bins, digits=3, zero_division=0
+                y_test_cls, y_pred_knn,
+                labels=labels_bins, target_names=labels_bins,
+                digits=3, zero_division=0
             )
             st.code(rep_knn)
     else:
@@ -459,6 +512,7 @@ with tabs[5]:
     if up_csv is not None and (model_infer is not None) and (scaler_infer is not None):
         try:
             df_new = pd.read_csv(up_csv)
+            df_new = normalize_columns(df_new)  # normaliza variantes de nombres
             st.write("Vista previa de tu archivo:")
             st.dataframe(df_new.head(), use_container_width=True)
 
@@ -482,6 +536,7 @@ with tabs[5]:
             X_new_s = scaler_infer.transform(X_new)
             y_pred_t = model_infer.predict(X_new_s, verbose=0).ravel()
             y_pred = np.expm1(y_pred_t) if Y_TRANSFORM == "log1p" else y_pred_t
+            y_pred = np.clip(y_pred, 0.0, None)  # evita negativos
 
             # Clasificación por rangos
             bins = [0, 2, 7, 40, np.inf]
@@ -490,7 +545,7 @@ with tabs[5]:
 
             df_out = df_new.copy()
             df_out["Clorofila_predicha (μg/L)"] = y_pred
-            df_out["Clase_predicha"] = clases.values
+            df_out["Clase_predicha"] = pd.Series(clases).astype("string")
 
             st.success("¡Predicción completada!")
             st.dataframe(df_out.head(50), use_container_width=True)
@@ -503,7 +558,7 @@ with tabs[5]:
                 mime="text/csv"
             )
 
-            # Grafiquita rápida (distribución)
+            # Distribución de predicciones
             fig_hist, axh = plt.subplots()
             axh.hist(y_pred, bins=30)
             axh.set_title("Distribución de Clorofila predicha (μg/L)")
@@ -515,3 +570,4 @@ with tabs[5]:
             st.error(f"Ocurrió un error procesando tu archivo: {e}")
     else:
         st.info("Sube un CSV y asegúrate de tener modelo y scaler listos para predecir.")
+
