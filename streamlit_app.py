@@ -1,22 +1,20 @@
 # ============================================
 # Página: Modelado y Clasificación (Clorofila)
-# Lee data desde tus URLs de GitHub (raw),
-# entrena/regresa/clasifica y ordena TODAS
-# las figuras en pestañas, con banderas en sidebar.
-# Incluye MATRICES DE CONFUSIÓN DIFUSAS (fuzzy logic)
+# v1.0.7-fuzzy-fix  —  incluye:
+# - Matrices de confusión difusas (regresión y clasificación)
+# - Alineación robusta de predict_proba al orden de etiquetas
 # ============================================
 
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Evita ciertos warnings numéricos
 
-import io
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import unicodedata
-
 import streamlit as st
-import pathlib, re, textwrap, sys
+import pathlib, re
+from datetime import datetime
 
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.preprocessing import StandardScaler, RobustScaler
@@ -30,16 +28,12 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 import joblib
 
-# ==== TensorFlow/Keras (sección de regresión NN) ====
 import tensorflow as tf
 from tensorflow import keras
 from keras import layers
 from keras.losses import Huber
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from matplotlib.patches import Rectangle
-
-from datetime import datetime
-import pathlib
 
 # --- Depurador: localiza cualquier ".values" peligroso en este archivo ---
 try:
@@ -59,19 +53,16 @@ except Exception:
     pass
 
 # ========= Versión / Build =========
-STAMP_VER = "v1.0.6-fuzzy"
+STAMP_VER = "v1.0.7-fuzzy-fix"
 _this = pathlib.Path(__file__)
+st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.info(
     f"🔖 Build check: {STAMP_VER} | file={_this.name} | mtime={datetime.fromtimestamp(_this.stat().st_mtime).isoformat(' ', 'seconds')}"
 )
 st.sidebar.caption(f"Archivo en ejecución: {_this}")
 
-# ===========================
-# Config de página y título
-# ===========================
-st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
 st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación (con lógica difusa)")
-st.caption("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
+st.caption("Resultados del modelo visualizados en tiempo real.")
 
 # ===========================
 # Rutas/URLs 
@@ -81,7 +72,7 @@ CSV_LIMPIO_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_
 CSV_FILTRADO_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/datos_filtrados.csv"
 PRED_REG_CSV_URL = "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/refs/heads/master/predicciones_clorofila.csv"
 
-# Nombres de salida locales (para descargas desde la app)
+# Salidas locales
 MODEL_PATH = "modelo_clorofila.keras"
 SCALER_PATH = "scaler_clorofila.pkl"
 PRED_REG_CSV = "predicciones_clorofila_LOCAL.csv"
@@ -135,7 +126,6 @@ with st.expander("📥 Fuentes de datos (URLs)", expanded=False):
     st.write("**CSV_FILTRADO_URL**:", CSV_FILTRADO_URL)
     st.write("**PRED_REG_CSV_URL**:", PRED_REG_CSV_URL)
 
-# Usaremos por defecto el CSV limpio como dataset principal
 df = cargar_csv(CSV_LIMPIO_URL)
 
 # ===========================
@@ -146,7 +136,6 @@ if faltantes:
     st.error(f"Faltan columnas en el dataset: {faltantes}")
     st.stop()
 
-# A numérico + outlier clipping defensivo
 for col in columnas_entrada + [columna_salida]:
     df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -162,17 +151,14 @@ df = df.dropna(subset=columnas_entrada + [columna_salida]).reset_index(drop=True
 X = df[columnas_entrada].values
 y_real = df[columna_salida].values
 
-if Y_TRANSFORM == "log1p":
-    y_trans = np.log1p(y_real)
-else:
-    y_trans = y_real.copy()
+y_trans = np.log1p(y_real) if Y_TRANSFORM == "log1p" else y_real.copy()
 
 X_train, X_test, y_train_t, y_test_t = train_test_split(
     X, y_trans, test_size=0.20, random_state=42
 )
 
 # ===========================
-# Plotters de matrices
+# Plotters matrices
 # ===========================
 def plot_confusion_matrix_pretty(cm, labels, title):
     fig, ax = plt.subplots(figsize=(8, 7))
@@ -181,44 +167,33 @@ def plot_confusion_matrix_pretty(cm, labels, title):
     ax.set_xticks(range(n)); ax.set_xticklabels(labels, rotation=20, ha="right")
     ax.set_yticks(range(n)); ax.set_yticklabels(labels)
     ax.set_title(title)
-
-    # Cuadrícula
     for i in range(n+1):
         ax.axhline(i-0.5, color="#888", lw=0.6, alpha=0.6)
         ax.axvline(i-0.5, color="#888", lw=0.6, alpha=0.6)
-
-    # Pintar SOLO la diagonal
     for i in range(n):
         ax.add_patch(Rectangle((i-0.5, i-0.5), 1, 1, facecolor="#78c679", alpha=0.35, edgecolor="none"))
-
-    # Números grandes
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             ax.text(j, i, f"{cm[i, j]:,}", va="center", ha="center", fontsize=16, fontweight="bold")
-
     ax.set_xlabel("Predicted label"); ax.set_ylabel("True label")
     fig.tight_layout()
     return fig
 
-def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.1f}"):
-    """Versión para matrices con valores no enteros (difusas)."""
+def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.2f}"):
     fig, ax = plt.subplots(figsize=(8, 7))
     n = len(labels)
     ax.set_xlim(-0.5, n-0.5); ax.set_ylim(n-0.5, -0.5)
     ax.set_xticks(range(n)); ax.set_xticklabels(labels, rotation=20, ha="right")
     ax.set_yticks(range(n)); ax.set_yticklabels(labels)
     ax.set_title(title)
-
     for i in range(n+1):
         ax.axhline(i-0.5, color="#888", lw=0.6, alpha=0.6)
         ax.axvline(i-0.5, color="#888", lw=0.6, alpha=0.6)
     for i in range(n):
         ax.add_patch(Rectangle((i-0.5, i-0.5), 1, 1, facecolor="#78c679", alpha=0.35, edgecolor="none"))
-
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             ax.text(j, i, fmt.format(cm[i, j]), va="center", ha="center", fontsize=16, fontweight="bold")
-
     ax.set_xlabel("Predicted label"); ax.set_ylabel("True label")
     fig.tight_layout()
     return fig
@@ -226,31 +201,7 @@ def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.1f}"):
 # ===========================
 # ==== Fuzzy logic helpers ====
 # ===========================
-def align_proba_to_labels(proba: np.ndarray, classes_pred, labels_order):
-    """
-    Reordena/expande proba a las etiquetas 'labels_order'.
-    - classes_pred: vector de clases que corresponden a las columnas de 'proba' (p.ej. clf[-1].classes_)
-    - labels_order: orden objetivo (p.ej. labels_bins)
-    Devuelve array shape (n_samples, len(labels_order)).
-    """
-    classes_pred = list(classes_pred)
-    idx_map = {c: i for i, c in enumerate(classes_pred)}
-    n = proba.shape[0]
-    k = len(labels_order)
-    out = np.zeros((n, k), dtype=float)
-    for j, lab in enumerate(labels_order):
-        if lab in idx_map:
-            out[:, j] = proba[:, idx_map[lab]]
-        else:
-            out[:, j] = 0.0
-    # Normaliza filas si la suma > 0 (evita dividir por 0)
-    row_sums = out.sum(axis=1, keepdims=True)
-    np.divide(out, row_sums, out=out, where=row_sums > 0)
-    return out
-
 def _trapezoid(x, a, b, c, d):
-    """Función de pertenencia trapezoidal. a<=b<=c<=d.
-    Soporta hombros con a==b o c==d."""
     x = float(x)
     if x <= a or x >= d:
         return 0.0
@@ -263,33 +214,22 @@ def _trapezoid(x, a, b, c, d):
     return 0.0
 
 def _right_shoulder(x, a, b):
-    """Pertenencia hombro derecho: 0 hasta a, 1 desde b, lineal entre a-b."""
     x = float(x)
     if x <= a: return 0.0
     if x >= b: return 1.0
     return (x - a) / (b - a) if b > a else 1.0
 
 def fuzzy_memberships_scalar(x, eps=(0.3, 1.0, 5.0)):
-    """
-    Devuelve un vector de membresías (4 clases) para un valor de clorofila x.
-    eps=(e1,e2,e3) controlan el 'suavizado' alrededor de 2, 7 y 40 µg/L.
-    Clases: [0–2], [2–7], [7–40], [≥40]
-    """
     e1, e2, e3 = eps
     m0 = _trapezoid(x, 0.0, 0.0, 2.0 - e1, 2.0 + e1)                 # 0–2
     m1 = _trapezoid(x, 2.0 - e1, 2.0 + e1, 7.0 - e2, 7.0 + e2)       # 2–7
     m2 = _trapezoid(x, 7.0 - e2, 7.0 + e2, 40.0 - e3, 40.0 + e3)     # 7–40
     m3 = _right_shoulder(x, 40.0 - e3, 40.0 + e3)                    # ≥40
-
     v = np.array([m0, m1, m2, m3], dtype=float)
     s = v.sum()
     return v / s if s > 0 else v
 
 def fuzzy_confusion_from_numeric(y_true_values, y_pred_values, n_classes=4, eps=(0.3, 1.0, 5.0)):
-    """
-    Matriz de confusión difusa cuando tienes valores numéricos (p.ej. regresión).
-    Acumula outer-product de membresías difusas de verdad vs. predicción.
-    """
     M = np.zeros((n_classes, n_classes), dtype=float)
     for t, p in zip(y_true_values, y_pred_values):
         mu_t = fuzzy_memberships_scalar(t, eps)
@@ -298,11 +238,6 @@ def fuzzy_confusion_from_numeric(y_true_values, y_pred_values, n_classes=4, eps=
     return M
 
 def fuzzy_confusion_from_probs(y_true_values, pred_proba, n_classes=4, eps=(0.3, 1.0, 5.0)):
-    """
-    Matriz de confusión difusa cuando tienes probabilidades de clase del clasificador.
-    y_true_values = clorofila real (numérica)
-    pred_proba    = array shape (n_samples, n_classes) con probas predichas
-    """
     M = np.zeros((n_classes, n_classes), dtype=float)
     for t, q in zip(y_true_values, pred_proba):
         mu_t = fuzzy_memberships_scalar(t, eps)
@@ -311,8 +246,42 @@ def fuzzy_confusion_from_probs(y_true_values, pred_proba, n_classes=4, eps=(0.3,
         M += np.outer(mu_t, q)
     return M
 
+# --- Helpers para alinear predict_proba con orden de etiquetas ---
+def align_proba_to_labels(proba: np.ndarray, classes_pred, labels_order):
+    """
+    Reordena/expande 'proba' al orden 'labels_order'.
+    - classes_pred: orden real de columnas de 'proba' (estimator.classes_)
+    - labels_order: orden objetivo (p.ej., labels_bins)
+    Devuelve shape (n_samples, len(labels_order)).
+    """
+    classes_pred = list(classes_pred) if classes_pred is not None else []
+    idx_map = {c: i for i, c in enumerate(classes_pred)}
+    n = proba.shape[0]
+    k = len(labels_order)
+    out = np.zeros((n, k), dtype=float)
+    for j, lab in enumerate(labels_order):
+        if lab in idx_map:
+            out[:, j] = proba[:, idx_map[lab]]
+        else:
+            out[:, j] = 0.0
+    row_sums = out.sum(axis=1, keepdims=True)
+    np.divide(out, row_sums, out=out, where=row_sums > 0)
+    return out
+
+def get_classes_from_pipeline(pipe):
+    """
+    Extrae el estimador final y sus 'classes_' desde un Pipeline o estimador suelto.
+    """
+    if hasattr(pipe, "named_steps") and isinstance(pipe.named_steps, dict) and pipe.named_steps:
+        last_name = list(pipe.named_steps.keys())[-1]
+        est = pipe.named_steps[last_name]
+    else:
+        est = pipe
+    classes = getattr(est, "classes_", None)
+    return est, classes
+
 # ===========================
-# Tabs para ordenar todas las figuras
+# Tabs
 # ===========================
 tabs = st.tabs([
     "📈 Regresión NN",
@@ -322,8 +291,6 @@ tabs = st.tabs([
     "🎯 Clasificación directa (SVM/KNN)",
     "🧐 Visualización de nuevas predicciones",
 ])
-if len(tabs) != 6:
-    st.error(f"Esperaba 6 pestañas pero hay {len(tabs)}. ¿Guardaste el archivo y reiniciaste la app?")
 
 # ===========================
 # 1) REGRESIÓN NN
@@ -363,7 +330,7 @@ with tabs[0]:
                 verbose=0
             )
 
-        # Curva de pérdida
+        # Curvas
         fig_loss, ax = plt.subplots()
         ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
         ax.plot(hist.history["val_loss"], label="Pérdida validación")
@@ -394,7 +361,7 @@ with tabs[0]:
         col3.metric("MAE (test)", f"{mae:.3f}")
         col4.metric("R² (test)", f"{r2:.3f}")
 
-        # Guardado local + botón de descarga
+        # Guardado local + botón
         model.save(MODEL_PATH)
         with open(MODEL_PATH, "rb") as f:
             st.download_button("⬇️ Descargar modelo (.keras)", data=f, file_name=MODEL_PATH, mime="application/octet-stream")
@@ -406,9 +373,9 @@ with tabs[0]:
             "Clorofila_real (μg/L)": y_true_test,
             "Clorofila_predicha (μg/L)": y_pred_test
         })
-        csv_bytes = df_preds.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Descargar predicciones (CSV)", data=csv_bytes, file_name=PRED_REG_CSV, mime="text/csv")
-
+        st.download_button("⬇️ Descargar predicciones (CSV)",
+                           data=df_preds.to_csv(index=False).encode("utf-8"),
+                           file_name=PRED_REG_CSV, mime="text/csv")
     else:
         st.info("Activa **Entrenar red neuronal (regresión)** en el panel lateral para ver esta sección.")
 
@@ -421,39 +388,31 @@ with tabs[1]:
         bins = [0, 2, 7, 40, np.inf]
         labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
 
-        # Convertir a Series de tipo string (NO usar .values)
-        y_true_bins = pd.Series(
-            pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False),
-            dtype="string"
-        )
-        y_pred_bins = pd.Series(
-            pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False),
-            dtype="string"
-        )
+        y_true_bins = pd.Series(pd.cut(y_true_test, bins=bins, labels=labels_bins, right=False), dtype="string")
+        y_pred_bins = pd.Series(pd.cut(y_pred_test,  bins=bins, labels=labels_bins, right=False), dtype="string")
 
-        # Matriz clásica (enteros)
+        # Matriz clásica
         cm_reg = confusion_matrix(y_true_bins, y_pred_bins, labels=labels_bins)
-        fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
-        st.pyplot(fig_cm, use_container_width=True)
+        st.pyplot(plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)"),
+                  use_container_width=True)
 
         rep_reg = classification_report(
-            y_true_bins, y_pred_bins,
-            labels=labels_bins, target_names=labels_bins,
+            y_true_bins, y_pred_bins, labels=labels_bins, target_names=labels_bins,
             digits=3, zero_division=0
         )
         st.code(rep_reg)
 
-        # --------- MATRIZ DIFUSA DESDE REGRESIÓN ---------
+        # Matriz difusa
         if USE_FUZZY:
             cm_reg_fuzzy = fuzzy_confusion_from_numeric(y_true_test, y_pred_test, n_classes=4, eps=EPS)
-            fig_cm_fuzzy = plot_confusion_matrix_pretty_float(
-                cm_reg_fuzzy, labels_bins, "Matriz de confusión **difusa** (Regresión → Rangos)", fmt="{:.2f}"
+            st.pyplot(
+                plot_confusion_matrix_pretty_float(cm_reg_fuzzy, labels_bins,
+                                                   "Matriz de confusión **difusa** (Regresión → Rangos)"),
+                use_container_width=True
             )
-            st.pyplot(fig_cm_fuzzy, use_container_width=True)
             st.caption(f"Suma total de pesos (≈ muestras): {cm_reg_fuzzy.sum():.2f}")
-        # --------------------------------------------------
 
-        # CSV de clases — SIN .values
+        # CSV de clases
         df_cls_reg = pd.DataFrame({
             "Clorofila_real (µg/L)": y_true_test,
             "Clase_real": y_true_bins,
@@ -462,8 +421,7 @@ with tabs[1]:
         })
         st.download_button("⬇️ Descargar clases desde regresión (CSV)",
                            data=df_cls_reg.to_csv(index=False).encode("utf-8"),
-                           file_name=PRED_CLASES_DESDE_REG,
-                           mime="text/csv")
+                           file_name=PRED_CLASES_DESDE_REG, mime="text/csv")
     else:
         st.info("Entrena la **Regresión NN** para habilitar esta pestaña.")
 
@@ -493,7 +451,7 @@ with tabs[2]:
         c3.metric("MAE (test)", f"{mae_rf:.2f}")
         c4.metric("R² (test)", f"{r2_rf:.3f}")
 
-        # Importancia de características
+        # Importancia
         imp = pd.Series(rf.feature_importances_, index=columnas_entrada).sort_values(ascending=False)
         fig_imp, ax = plt.subplots(figsize=(6,4))
         imp.plot(kind="bar", ax=ax)
@@ -536,12 +494,8 @@ with tabs[3]:
             X_tr, X_te = X_raw[tr_idx], X_raw[te_idx]
             y_tr, y_te = y_raw[tr_idx], y_raw[te_idx]
 
-            if Y_TRANSFORM == "log1p":
-                y_tr_t = np.log1p(y_tr)
-                y_te_t = np.log1p(y_te)
-            else:
-                y_tr_t = y_tr.copy()
-                y_te_t = y_te.copy()
+            y_tr_t = np.log1p(y_tr) if Y_TRANSFORM == "log1p" else y_tr.copy()
+            y_te_t = np.log1p(y_te) if Y_TRANSFORM == "log1p" else y_te.copy()
 
             scaler_cv = RobustScaler() if USE_ROBUST_SCALER else StandardScaler()
             X_tr_s = scaler_cv.fit_transform(X_tr)
@@ -575,8 +529,7 @@ with tabs[3]:
 
         st.download_button("⬇️ Descargar métricas K-Fold (CSV)",
                            data=df_cv.to_csv(index=False).encode("utf-8"),
-                           file_name="kfold_metrics.csv",
-                           mime="text/csv")
+                           file_name="kfold_metrics.csv", mime="text/csv")
     else:
         st.info("Activa **K-Fold CV (NN)** para visualizar.")
 
@@ -590,20 +543,16 @@ with tabs[4]:
         bins = [0, 2, 7, 40, np.inf]
         labels_bins = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
 
-        # Etiquetas de clase desde y_real
-        y_cls_all = pd.cut(y_real, bins=bins, labels=labels_bins, right=False)
-
-        # Coherencia de splits con la NN
         X_train_rf, X_test_rf, y_train_rf, y_test_rf = train_test_split(
             X, y_real, test_size=0.20, random_state=42
         )
         y_train_cls = pd.cut(y_train_rf, bins=bins, labels=labels_bins, right=False)
         y_test_cls  = pd.cut(y_test_rf,  bins=bins, labels=labels_bins, right=False)
 
-        # Pipelines (SVM con probas activadas)
         svm_clf = make_pipeline(
             StandardScaler(),
-            SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", probability=True, random_state=42)
+            SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced",
+                probability=True, random_state=42)
         )
         knn_clf = make_pipeline(
             StandardScaler(),
@@ -622,60 +571,50 @@ with tabs[4]:
 
         col_a, col_b = st.columns(2)
         with col_a:
-            fig_svm = plot_confusion_matrix_pretty(cm_svm, labels_bins, "Matriz de confusión — SVM (4 clases)")
-            st.pyplot(fig_svm, use_container_width=True)
-
-            rep_svm = classification_report(
-                y_test_cls, y_pred_svm,
-                labels=labels_bins,
-                target_names=labels_bins,
-                digits=3,
-                zero_division=0
-            )
-            st.code(rep_svm)
-
+            st.pyplot(plot_confusion_matrix_pretty(cm_svm, labels_bins, "Matriz de confusión — SVM (4 clases)"),
+                      use_container_width=True)
+            st.code(classification_report(
+                y_test_cls, y_pred_svm, labels=labels_bins, target_names=labels_bins,
+                digits=3, zero_division=0
+            ))
         with col_b:
-            fig_knn = plot_confusion_matrix_pretty(cm_knn, labels_bins, "Matriz de confusión — KNN (4 clases)")
-            st.pyplot(fig_knn, use_container_width=True)
-
-            rep_knn = classification_report(
-                y_test_cls, y_pred_knn,
-                labels=labels_bins,
-                target_names=labels_bins,
-                digits=3,
-                zero_division=0
-            )
-            st.code(rep_knn)
+            st.pyplot(plot_confusion_matrix_pretty(cm_knn, labels_bins, "Matriz de confusión — KNN (4 clases)"),
+                      use_container_width=True)
+            st.code(classification_report(
+                y_test_cls, y_pred_knn, labels=labels_bins, target_names=labels_bins,
+                digits=3, zero_division=0
+            ))
 
         # --------- MATRICES DIFUSAS CON PROBABILIDADES ---------
         if USE_FUZZY:
-            # Alinear probas al orden labels_bins y completar clases ausentes con 0
-            svm_classes = svm_clf[-1].classes_   # último paso del Pipeline
-            knn_classes = knn_clf[-1].classes_
-        
+            proba_svm = svm_clf.predict_proba(X_test_rf)
+            proba_knn = knn_clf.predict_proba(X_test_rf)
+
+            _, svm_classes = get_classes_from_pipeline(svm_clf)
+            _, knn_classes = get_classes_from_pipeline(knn_clf)
+
             proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, labels_bins)
             proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, labels_bins)
-        
+
             cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_rf, proba_svm_al, n_classes=4, eps=EPS)
             cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_rf, proba_knn_al, n_classes=4, eps=EPS)
-        
+
             col_f1, col_f2 = st.columns(2)
             with col_f1:
-                fig_svm_f = plot_confusion_matrix_pretty_float(
-                    cm_svm_fuzzy, labels_bins, "Matriz **difusa** — SVM (con probas)", fmt="{:.2f}"
+                st.pyplot(
+                    plot_confusion_matrix_pretty_float(cm_svm_fuzzy, labels_bins,
+                                                       "Matriz **difusa** — SVM (con probas)"),
+                    use_container_width=True
                 )
-                st.pyplot(fig_svm_f, use_container_width=True)
                 st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
-        
             with col_f2:
-                fig_knn_f = plot_confusion_matrix_pretty_float(
-                    cm_knn_fuzzy, labels_bins, "Matriz **difusa** — KNN (con probas)", fmt="{:.2f}"
+                st.pyplot(
+                    plot_confusion_matrix_pretty_float(cm_knn_fuzzy, labels_bins,
+                                                       "Matriz **difusa** — KNN (con probas)"),
+                    use_container_width=True
                 )
-                st.pyplot(fig_knn_f, use_container_width=True)
                 st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
-
         # --------------------------------------------------------
-
     else:
         st.info("Activa **Clasificación directa (SVM/KNN)** para visualizar.")
 
@@ -690,30 +629,22 @@ with tabs[5]:
         st.info("Activa **‘Probar modelo con datos nuevos’** en el panel lateral para habilitar esta pestaña.")
         st.stop()
 
-    # -------------------------
-    # 0) Helper: lectura robusta
-    # -------------------------
     def read_csv_robust(uploaded):
         encodings = ["utf-8", "utf-8-sig", "latin1", "cp1252", "iso-8859-1"]
-        seps = [None, ",", ";", "\t", "|"]  # None => autodetección con engine='python'
+        seps = [None, ",", ";", "\t", "|"]
         for enc in encodings:
             for sep in seps:
                 try:
                     uploaded.seek(0)
                     df = pd.read_csv(
-                        uploaded,
-                        encoding=enc,
-                        sep=sep,
+                        uploaded, encoding=enc, sep=sep,
                         engine="python" if sep is None else "c",
                     )
                     return df
                 except Exception:
                     continue
-        return None   # ← AQUÍ termina la función
+        return None
 
-    # -------------------------
-    # 1) Modelo / scaler
-    # -------------------------
     model_infer = model if "model" in locals() else None
     scaler_infer = scaler if "scaler" in locals() else None
 
@@ -733,9 +664,6 @@ with tabs[5]:
             st.info("Sube **ambos** archivos para continuar.")
             st.stop()
 
-    # -------------------------
-    # 2) CSV nuevo
-    # -------------------------
     up_csv = st.file_uploader("Cargar CSV con **nuevos** datos (sin clorofila)", type=["csv"], key="csv_newdata")
     if up_csv is None:
         st.info("Sube un CSV para ver matrices y tabla de resultados.")
@@ -749,9 +677,6 @@ with tabs[5]:
     st.write("Vista previa del archivo cargado:")
     st.dataframe(df_new.head(), use_container_width=True)
 
-    # -------------------------
-    # 3) Normalizar columnas
-    # -------------------------
     def _normalize_cols(df: pd.DataFrame) -> pd.DataFrame:
         def canon(s: str) -> str:
             s = str(s)
@@ -827,9 +752,6 @@ with tabs[5]:
     elif len(df_new) < n0:
         st.warning(f"Se omitieron {n0 - len(df_new)} filas por valores no numéricos/NaN.")
 
-    # -------------------------
-    # 4) Predicción NN + clases por rangos
-    # -------------------------
     X_new = df_new[req].values
     try:
         X_new_s = scaler_infer.transform(X_new)
@@ -845,9 +767,6 @@ with tabs[5]:
     LABELS = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
     cls_reg = pd.Series(pd.cut(y_pred, bins=BINS, labels=LABELS, right=False), dtype="string")
 
-    # -------------------------
-    # 5) Clasificación directa (SVM/KNN)
-    # -------------------------
     if ("svm_clf" in locals()) and ("knn_clf" in locals()):
         clf_svm, clf_knn = svm_clf, knn_clf
     else:
@@ -863,10 +782,6 @@ with tabs[5]:
     cls_svm = clf_svm.predict(X_new)
     cls_knn = clf_knn.predict(X_new)
 
-    # -------------------------
-    # 6) Matrices + tabla + descarga
-    # -------------------------
-    # Nota: Aquí no hay "verdad" para nuevas muestras; usamos NN→rangos como proxy
     cm_reg_new = confusion_matrix(cls_reg, cls_reg, labels=LABELS)
     cm_svm_new = confusion_matrix(cls_reg, cls_svm, labels=LABELS)
     cm_knn_new = confusion_matrix(cls_reg, cls_knn, labels=LABELS)
