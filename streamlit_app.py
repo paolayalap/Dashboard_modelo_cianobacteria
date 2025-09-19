@@ -226,6 +226,28 @@ def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.1f}"):
 # ===========================
 # ==== Fuzzy logic helpers ====
 # ===========================
+def align_proba_to_labels(proba: np.ndarray, classes_pred, labels_order):
+    """
+    Reordena/expande proba a las etiquetas 'labels_order'.
+    - classes_pred: vector de clases que corresponden a las columnas de 'proba' (p.ej. clf[-1].classes_)
+    - labels_order: orden objetivo (p.ej. labels_bins)
+    Devuelve array shape (n_samples, len(labels_order)).
+    """
+    classes_pred = list(classes_pred)
+    idx_map = {c: i for i, c in enumerate(classes_pred)}
+    n = proba.shape[0]
+    k = len(labels_order)
+    out = np.zeros((n, k), dtype=float)
+    for j, lab in enumerate(labels_order):
+        if lab in idx_map:
+            out[:, j] = proba[:, idx_map[lab]]
+        else:
+            out[:, j] = 0.0
+    # Normaliza filas si la suma > 0 (evita dividir por 0)
+    row_sums = out.sum(axis=1, keepdims=True)
+    np.divide(out, row_sums, out=out, where=row_sums > 0)
+    return out
+
 def _trapezoid(x, a, b, c, d):
     """Función de pertenencia trapezoidal. a<=b<=c<=d.
     Soporta hombros con a==b o c==d."""
@@ -627,12 +649,16 @@ with tabs[4]:
 
         # --------- MATRICES DIFUSAS CON PROBABILIDADES ---------
         if USE_FUZZY:
-            proba_svm = svm_clf.predict_proba(X_test_rf)  # shape (n, 4)
-            proba_knn = knn_clf.predict_proba(X_test_rf)  # shape (n, 4)
-
-            cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_rf, proba_svm, n_classes=4, eps=EPS)
-            cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_rf, proba_knn, n_classes=4, eps=EPS)
-
+            # Alinear probas al orden labels_bins y completar clases ausentes con 0
+            svm_classes = svm_clf[-1].classes_   # último paso del Pipeline
+            knn_classes = knn_clf[-1].classes_
+        
+            proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, labels_bins)
+            proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, labels_bins)
+        
+            cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_rf, proba_svm_al, n_classes=4, eps=EPS)
+            cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_rf, proba_knn_al, n_classes=4, eps=EPS)
+        
             col_f1, col_f2 = st.columns(2)
             with col_f1:
                 fig_svm_f = plot_confusion_matrix_pretty_float(
@@ -640,13 +666,14 @@ with tabs[4]:
                 )
                 st.pyplot(fig_svm_f, use_container_width=True)
                 st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
-
+        
             with col_f2:
                 fig_knn_f = plot_confusion_matrix_pretty_float(
                     cm_knn_fuzzy, labels_bins, "Matriz **difusa** — KNN (con probas)", fmt="{:.2f}"
                 )
                 st.pyplot(fig_knn_f, use_container_width=True)
                 st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
+
         # --------------------------------------------------------
 
     else:
