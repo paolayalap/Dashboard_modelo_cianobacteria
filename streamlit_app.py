@@ -3,6 +3,7 @@
 # Lee data desde tus URLs de GitHub (raw),
 # entrena/regresa/clasifica y ordena TODAS
 # las figuras en pestañas, con banderas en sidebar.
+# Incluye MATRICES DE CONFUSIÓN DIFUSAS (fuzzy logic)
 # ============================================
 
 import os
@@ -14,26 +15,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import unicodedata
 
-
 import streamlit as st
 import pathlib, re, textwrap, sys
-
-# --- Depurador: localiza cualquier ".values" peligroso en este archivo ---
-try:
-    src_path = pathlib.Path(__file__)
-    src = src_path.read_text(encoding="utf-8")
-    bads = [m.start() for m in re.finditer(r"y_(?:true|pred)_clf_reg\.values", src)]
-    if bads:
-        ln = src[:bads[0]].count("\n") + 1
-        snippet = "\n".join(src.splitlines()[max(0, ln-4): ln+4])
-        import streamlit as st
-        st.error(f"⚠️ Hay una referencia a '.values' en la línea {ln} de {src_path.name}. "
-                 "Reemplázala por pd.Series(...).astype('string').\n\n"
-                 "Fragmento actual:\n" + snippet)
-        st.stop()
-except Exception:
-    pass
-
 
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.preprocessing import StandardScaler, RobustScaler
@@ -58,20 +41,37 @@ from matplotlib.patches import Rectangle
 from datetime import datetime
 import pathlib
 
-STAMP_VER = "v1.0.5"  # súbelo un número
-_this = pathlib.Path(__file__)
-st.info(f"🔖 Build check: {STAMP_VER} | file={_this.name} | mtime={datetime.fromtimestamp(_this.stat().st_mtime).isoformat(' ', 'seconds')}")
-st.sidebar.caption(f"Archivo en ejecución: {_this}")
+# --- Depurador: localiza cualquier ".values" peligroso en este archivo ---
+try:
+    src_path = pathlib.Path(__file__)
+    src = src_path.read_text(encoding="utf-8")
+    bads = [m.start() for m in re.finditer(r"y_(?:true|pred)_clf_reg\.values", src)]
+    if bads:
+        ln = src[:bads[0]].count("\n") + 1
+        snippet = "\n".join(src.splitlines()[max(0, ln-4): ln+4])
+        st.error(
+            f"⚠️ Hay una referencia a '.values' en la línea {ln} de {src_path.name}. "
+            "Reemplázala por pd.Series(...).astype('string').\n\n"
+            "Fragmento actual:\n" + snippet
+        )
+        st.stop()
+except Exception:
+    pass
 
+# ========= Versión / Build =========
+STAMP_VER = "v1.0.6-fuzzy"
+_this = pathlib.Path(__file__)
+st.info(
+    f"🔖 Build check: {STAMP_VER} | file={_this.name} | mtime={datetime.fromtimestamp(_this.stat().st_mtime).isoformat(' ', 'seconds')}"
+)
+st.sidebar.caption(f"Archivo en ejecución: {_this}")
 
 # ===========================
 # Config de página y título
 # ===========================
 st.set_page_config(page_title="Dashboard cianobacteria — Modelos", layout="wide")
-st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación")
+st.title("🧪 Dashboard cyanobacteria — Modelos y Clasificación (con lógica difusa)")
 st.caption("Los resultados obtenidos por el modelo se estarán visualizando en tiempo real en esta aplicación.")
-#st.info("🔖 Build check: v1.0.3")
-
 
 # ===========================
 # Rutas/URLs 
@@ -111,7 +111,15 @@ st.sidebar.markdown("---")
 USE_ROBUST_SCALER = st.sidebar.selectbox("Scaler NN", ["RobustScaler", "StandardScaler"]) == "RobustScaler"
 Y_TRANSFORM = st.sidebar.selectbox("Transformación de y", ["log1p", "None"])
 LOSS = st.sidebar.selectbox("Función de pérdida NN", ["huber", "mse"])
-TRY_NEW_DATA = st.sidebar.toggle("Probar modelo con datos nuevos", value=True, key = "try_new")
+TRY_NEW_DATA = st.sidebar.toggle("Probar modelo con datos nuevos", value=True, key="try_new")
+
+# ======= Sidebar: Lógica Difusa =======
+st.sidebar.markdown("### 🔀 Fuzzy logic")
+USE_FUZZY = st.sidebar.checkbox("Usar matriz de confusión difusa", value=True)
+e1 = st.sidebar.number_input("Suavizado en 2 µg/L (e1)", min_value=0.0, max_value=5.0, value=0.3, step=0.1)
+e2 = st.sidebar.number_input("Suavizado en 7 µg/L (e2)", min_value=0.0, max_value=10.0, value=1.0, step=0.5)
+e3 = st.sidebar.number_input("Suavizado en 40 µg/L (e3)", min_value=0.0, max_value=20.0, value=5.0, step=0.5)
+EPS = (e1, e2, e3)
 
 # ===========================
 # Carga de datos (cache)
@@ -164,7 +172,7 @@ X_train, X_test, y_train_t, y_test_t = train_test_split(
 )
 
 # ===========================
-# Utilidad: Matriz de confusión bonita → FIG
+# Plotters de matrices
 # ===========================
 def plot_confusion_matrix_pretty(cm, labels, title):
     fig, ax = plt.subplots(figsize=(8, 7))
@@ -191,6 +199,95 @@ def plot_confusion_matrix_pretty(cm, labels, title):
     ax.set_xlabel("Predicted label"); ax.set_ylabel("True label")
     fig.tight_layout()
     return fig
+
+def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.1f}"):
+    """Versión para matrices con valores no enteros (difusas)."""
+    fig, ax = plt.subplots(figsize=(8, 7))
+    n = len(labels)
+    ax.set_xlim(-0.5, n-0.5); ax.set_ylim(n-0.5, -0.5)
+    ax.set_xticks(range(n)); ax.set_xticklabels(labels, rotation=20, ha="right")
+    ax.set_yticks(range(n)); ax.set_yticklabels(labels)
+    ax.set_title(title)
+
+    for i in range(n+1):
+        ax.axhline(i-0.5, color="#888", lw=0.6, alpha=0.6)
+        ax.axvline(i-0.5, color="#888", lw=0.6, alpha=0.6)
+    for i in range(n):
+        ax.add_patch(Rectangle((i-0.5, i-0.5), 1, 1, facecolor="#78c679", alpha=0.35, edgecolor="none"))
+
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, fmt.format(cm[i, j]), va="center", ha="center", fontsize=16, fontweight="bold")
+
+    ax.set_xlabel("Predicted label"); ax.set_ylabel("True label")
+    fig.tight_layout()
+    return fig
+
+# ===========================
+# ==== Fuzzy logic helpers ====
+# ===========================
+def _trapezoid(x, a, b, c, d):
+    """Función de pertenencia trapezoidal. a<=b<=c<=d.
+    Soporta hombros con a==b o c==d."""
+    x = float(x)
+    if x <= a or x >= d:
+        return 0.0
+    if b <= x <= c:
+        return 1.0
+    if a < x < b:
+        return 1.0 if b == a else (x - a) / (b - a)
+    if c < x < d:
+        return 1.0 if d == c else (d - x) / (d - c)
+    return 0.0
+
+def _right_shoulder(x, a, b):
+    """Pertenencia hombro derecho: 0 hasta a, 1 desde b, lineal entre a-b."""
+    x = float(x)
+    if x <= a: return 0.0
+    if x >= b: return 1.0
+    return (x - a) / (b - a) if b > a else 1.0
+
+def fuzzy_memberships_scalar(x, eps=(0.3, 1.0, 5.0)):
+    """
+    Devuelve un vector de membresías (4 clases) para un valor de clorofila x.
+    eps=(e1,e2,e3) controlan el 'suavizado' alrededor de 2, 7 y 40 µg/L.
+    Clases: [0–2], [2–7], [7–40], [≥40]
+    """
+    e1, e2, e3 = eps
+    m0 = _trapezoid(x, 0.0, 0.0, 2.0 - e1, 2.0 + e1)                 # 0–2
+    m1 = _trapezoid(x, 2.0 - e1, 2.0 + e1, 7.0 - e2, 7.0 + e2)       # 2–7
+    m2 = _trapezoid(x, 7.0 - e2, 7.0 + e2, 40.0 - e3, 40.0 + e3)     # 7–40
+    m3 = _right_shoulder(x, 40.0 - e3, 40.0 + e3)                    # ≥40
+
+    v = np.array([m0, m1, m2, m3], dtype=float)
+    s = v.sum()
+    return v / s if s > 0 else v
+
+def fuzzy_confusion_from_numeric(y_true_values, y_pred_values, n_classes=4, eps=(0.3, 1.0, 5.0)):
+    """
+    Matriz de confusión difusa cuando tienes valores numéricos (p.ej. regresión).
+    Acumula outer-product de membresías difusas de verdad vs. predicción.
+    """
+    M = np.zeros((n_classes, n_classes), dtype=float)
+    for t, p in zip(y_true_values, y_pred_values):
+        mu_t = fuzzy_memberships_scalar(t, eps)
+        mu_p = fuzzy_memberships_scalar(p, eps)
+        M += np.outer(mu_t, mu_p)
+    return M
+
+def fuzzy_confusion_from_probs(y_true_values, pred_proba, n_classes=4, eps=(0.3, 1.0, 5.0)):
+    """
+    Matriz de confusión difusa cuando tienes probabilidades de clase del clasificador.
+    y_true_values = clorofila real (numérica)
+    pred_proba    = array shape (n_samples, n_classes) con probas predichas
+    """
+    M = np.zeros((n_classes, n_classes), dtype=float)
+    for t, q in zip(y_true_values, pred_proba):
+        mu_t = fuzzy_memberships_scalar(t, eps)
+        q = np.asarray(q, dtype=float)
+        q = q / q.sum() if q.sum() > 0 else q
+        M += np.outer(mu_t, q)
+    return M
 
 # ===========================
 # Tabs para ordenar todas las figuras
@@ -312,6 +409,7 @@ with tabs[1]:
             dtype="string"
         )
 
+        # Matriz clásica (enteros)
         cm_reg = confusion_matrix(y_true_bins, y_pred_bins, labels=labels_bins)
         fig_cm = plot_confusion_matrix_pretty(cm_reg, labels_bins, "Matriz de confusión (Regresión → Rangos)")
         st.pyplot(fig_cm, use_container_width=True)
@@ -322,6 +420,16 @@ with tabs[1]:
             digits=3, zero_division=0
         )
         st.code(rep_reg)
+
+        # --------- MATRIZ DIFUSA DESDE REGRESIÓN ---------
+        if USE_FUZZY:
+            cm_reg_fuzzy = fuzzy_confusion_from_numeric(y_true_test, y_pred_test, n_classes=4, eps=EPS)
+            fig_cm_fuzzy = plot_confusion_matrix_pretty_float(
+                cm_reg_fuzzy, labels_bins, "Matriz de confusión **difusa** (Regresión → Rangos)", fmt="{:.2f}"
+            )
+            st.pyplot(fig_cm_fuzzy, use_container_width=True)
+            st.caption(f"Suma total de pesos (≈ muestras): {cm_reg_fuzzy.sum():.2f}")
+        # --------------------------------------------------
 
         # CSV de clases — SIN .values
         df_cls_reg = pd.DataFrame({
@@ -470,11 +578,15 @@ with tabs[4]:
         y_train_cls = pd.cut(y_train_rf, bins=bins, labels=labels_bins, right=False)
         y_test_cls  = pd.cut(y_test_rf,  bins=bins, labels=labels_bins, right=False)
 
-        # Pipelines
-        svm_clf = make_pipeline(StandardScaler(),
-                                SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", random_state=42))
-        knn_clf = make_pipeline(StandardScaler(),
-                                KNeighborsClassifier(n_neighbors=7, weights="distance"))
+        # Pipelines (SVM con probas activadas)
+        svm_clf = make_pipeline(
+            StandardScaler(),
+            SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", probability=True, random_state=42)
+        )
+        knn_clf = make_pipeline(
+            StandardScaler(),
+            KNeighborsClassifier(n_neighbors=7, weights="distance")
+        )
 
         with st.spinner("Entrenando SVM y KNN..."):
             svm_clf.fit(X_train_rf, y_train_cls)
@@ -491,7 +603,6 @@ with tabs[4]:
             fig_svm = plot_confusion_matrix_pretty(cm_svm, labels_bins, "Matriz de confusión — SVM (4 clases)")
             st.pyplot(fig_svm, use_container_width=True)
 
-            # -------- FIX AQUÍ --------
             rep_svm = classification_report(
                 y_test_cls, y_pred_svm,
                 labels=labels_bins,
@@ -500,13 +611,11 @@ with tabs[4]:
                 zero_division=0
             )
             st.code(rep_svm)
-            # --------------------------
 
         with col_b:
             fig_knn = plot_confusion_matrix_pretty(cm_knn, labels_bins, "Matriz de confusión — KNN (4 clases)")
             st.pyplot(fig_knn, use_container_width=True)
 
-            # -------- FIX AQUÍ --------
             rep_knn = classification_report(
                 y_test_cls, y_pred_knn,
                 labels=labels_bins,
@@ -515,7 +624,30 @@ with tabs[4]:
                 zero_division=0
             )
             st.code(rep_knn)
-            # --------------------------
+
+        # --------- MATRICES DIFUSAS CON PROBABILIDADES ---------
+        if USE_FUZZY:
+            proba_svm = svm_clf.predict_proba(X_test_rf)  # shape (n, 4)
+            proba_knn = knn_clf.predict_proba(X_test_rf)  # shape (n, 4)
+
+            cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_rf, proba_svm, n_classes=4, eps=EPS)
+            cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_rf, proba_knn, n_classes=4, eps=EPS)
+
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                fig_svm_f = plot_confusion_matrix_pretty_float(
+                    cm_svm_fuzzy, labels_bins, "Matriz **difusa** — SVM (con probas)", fmt="{:.2f}"
+                )
+                st.pyplot(fig_svm_f, use_container_width=True)
+                st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
+
+            with col_f2:
+                fig_knn_f = plot_confusion_matrix_pretty_float(
+                    cm_knn_fuzzy, labels_bins, "Matriz **difusa** — KNN (con probas)", fmt="{:.2f}"
+                )
+                st.pyplot(fig_knn_f, use_container_width=True)
+                st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
+        # --------------------------------------------------------
 
     else:
         st.info("Activa **Clasificación directa (SVM/KNN)** para visualizar.")
@@ -695,7 +827,7 @@ with tabs[5]:
         y_all_cls = pd.cut(y_real, bins=BINS, labels=LABELS, right=False)
         clf_svm = make_pipeline(StandardScaler(),
                                 SVC(kernel="rbf", C=2.0, gamma="scale",
-                                    class_weight="balanced", random_state=42))
+                                    class_weight="balanced", probability=True, random_state=42))
         clf_knn = make_pipeline(StandardScaler(),
                                 KNeighborsClassifier(n_neighbors=7, weights="distance"))
         clf_svm.fit(X, y_all_cls)
@@ -707,6 +839,7 @@ with tabs[5]:
     # -------------------------
     # 6) Matrices + tabla + descarga
     # -------------------------
+    # Nota: Aquí no hay "verdad" para nuevas muestras; usamos NN→rangos como proxy
     cm_reg_new = confusion_matrix(cls_reg, cls_reg, labels=LABELS)
     cm_svm_new = confusion_matrix(cls_reg, cls_svm, labels=LABELS)
     cm_knn_new = confusion_matrix(cls_reg, cls_knn, labels=LABELS)
