@@ -1,4 +1,4 @@
-# ============================================
+# ===========================================
 # Página: Modelado y Clasificación (Clorofila)
 # v1.0.7-fuzzy-fix  —  incluye:
 # - Matrices de confusión difusas (regresión y clasificación)
