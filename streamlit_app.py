@@ -1,22 +1,73 @@
-
-import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Evita ciertos warnings numéricos
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import unicodedata
 import streamlit as st
-import pathlib, re
-import joblib
-import tensorflow as tf
-from tensorflow import keras
-from keras import layers
-from keras.losses import Huber
-from keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from matplotlib.patches import Rectangle
+
+st.title("🧪 Modelos para predecir cianobacteria")
+st.caption("Presiona un botón para elegir el modelo que se desee analizar.")
+
+import streamlit as st
+
+st.set_page_config(page_title="Selector de Modelo", page_icon="🧪")
+
+st.markdown("## Selecciona un modelo")
+
+def go(page_stub: str):
+    """
+    Intenta cambiar de página usando varios patrones comunes.
+    Ajusta si tus archivos tienen otro nombre o ubicación.
+    """
+    # 1) /pages/<nombre>.py
+    try:
+        st.switch_page(f"pages/{page_stub}.py")
+        return
+    except Exception:
+        pass
+
+    # 2) nombre visible en el menú de páginas (sin .py)
+    try:
+        st.switch_page(page_stub)
+        return
+    except Exception:
+        pass
+
+    # 3) /<nombre>.py en raíz
+    try:
+        st.switch_page(f"{page_stub}.py")
+        return
+    except Exception:
+        st.error(
+            f"No pude abrir la página '{page_stub}'. "
+            "Verifica el nombre y la ubicación del archivo (por ejemplo: 'pages/lago_amatitlan.py')."
+        )
+
+# --- Disposición horizontal de 3 botones ---
+c1, c2, c3 = st.columns(3, gap="large")
+
+with c1:
+    if st.button(
+        "Modelo 1",
+        help="Predice clorofila con datos de Amatitlán.",
+        use_container_width=True
+    ):
+        go("lago_amatitlan")
+
+with c2:
+    if st.button(
+        "Modelo 2",
+        help="Predice clorofila y ficocianina con datos de Atitlán.",
+        use_container_width=True
+    ):
+        go("lago_atitlan")
+
+with c3:
+    if st.button(
+        "Modelo 3",
+        help="Predice clorofila y ficocianina con datos de Amatitlán y Atitlán.",
+        use_container_width=True
+    ):
+        go("ambos_lagos")
 
 
-st.title("🧪 Dashboard cyanobacteria")
-st.caption("Resultados del modelo")
 
 
