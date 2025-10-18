@@ -17,7 +17,7 @@ def go(page_stub: str):
     """
     # 1) /pages/<nombre>.py
     try:
-        st.switch_page(f"pages/{page_stub}.py")
+        st.switch_page(f"Pages/{page_stub}.py")
         return
     except Exception:
         pass
