@@ -4,13 +4,11 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 st.title("🧪 Modelos para predecir cianobacteria")
-st.caption("Presiona un botón para elegir el modelo que se desee analizar.")
-
-import streamlit as st
+st.write("Presiona un botón para elegir el modelo que se desee analizar.")
 
 st.set_page_config(page_title="Selector de Modelo", page_icon="🧪")
 
-st.markdown("## Selecciona un modelo")
+#st.markdown("## Selecciona un modelo")
 
 def go(page_stub: str):
     """
