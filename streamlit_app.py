@@ -17,7 +17,7 @@ def go(page_stub: str):
     """
     # 1) /pages/<nombre>.py
     try:
-        st.switch_page(f"Pages/{page_stub}.py")
+        st.switch_page(f"pages/{page_stub}.py")
         return
     except Exception:
         pass
@@ -48,7 +48,7 @@ with c1:
         help="Predice clorofila con datos de Amatitlán.",
         use_container_width=True
     ):
-        go("Pages/lago_amatitlan.py")
+        go("pages/lago_amatitlan.py")
 
 with c2:
     if st.button(
@@ -56,7 +56,7 @@ with c2:
         help="Predice clorofila y ficocianina con datos de Atitlán.",
         use_container_width=True
     ):
-        go("Pages/lago_atitlan.py")
+        go("pages/lago_atitlan.py")
 
 with c3:
     if st.button(
@@ -64,7 +64,7 @@ with c3:
         help="Predice clorofila y ficocianina con datos de Amatitlán y Atitlán.",
         use_container_width=True
     ):
-        go("Pages/ambos_lagos.py")
+        go("pages/ambos_lagos.py")
 
 
 
