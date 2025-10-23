@@ -28,6 +28,11 @@ try:
 except Exception:
     KERAS_OK = False
 
+# --- Estado global para el modelo de la curva ---
+TRAIN_SCALER = None
+TRAIN_MODEL = None
+TRAIN_Y_LOG1P = False
+
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
@@ -412,13 +417,25 @@ user_note2 = st.text_area("✍️ Puedes editar esta explicación de las matrice
 st.subheader("🧪 Predicción y matrices (difusas) con datos del estanque")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
-if KERAS_OK and 'TRAIN_MODEL' in globals() and 'TRAIN_SCALER' in globals():
-    Xp_s = TRAIN_SCALER.transform(Xp)
-    y_pred_t = TRAIN_MODEL.predict(Xp_s, verbose=0).ravel()
-    # Des-transforma si entrenamos en log1p:
-    y_proxy = np.expm1(y_pred_t) if globals().get("TRAIN_Y_LOG1P", False) else y_pred_t
+tm = globals().get("TRAIN_MODEL", None)
+ts = globals().get("TRAIN_SCALER", None)
+ylog = globals().get("TRAIN_Y_LOG1P", False)
+
+if KERAS_OK and (tm is not None) and (ts is not None):
+    # Usar la red entrenada en la sección de la curva
+    Xp_s = ts.transform(Xp)
+    y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
+    y_proxy = np.expm1(y_pred_t) if ylog else y_pred_t  # des-transforma si entrenaste con log1p
     y_true_p = np.clip(y_proxy, 0.0, None)
     used_proxy = True
+else:
+    # Fallback robusto: centroides por clase SVM
+    pred_cls = np.argmax(proba_svm_p_al, axis=1)
+    centers = np.array([1.0, 4.5, 20.0, 60.0])
+    y_true_p = centers[pred_cls]
+    used_proxy = True
+
+
 
     if not pond_path.exists():
         st.warning("No encuentro **dataframe1.csv** en la ruta indicada. Sube el archivo:")
