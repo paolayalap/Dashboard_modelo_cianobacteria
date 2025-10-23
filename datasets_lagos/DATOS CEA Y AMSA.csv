@@ -1,4 +1,4 @@
-Fecha;Sitio;pH;Turbidez (NTU);Oxígeno disuelto (mg/L);Temperatura (°C);Conductividad (ľS/cm);Clorofila (ľg/L)
+Fecha;Sitio;pH;Turbidez (NTU);Oxígeno disuelto (mg/L);Temperatura (°C);Conductividad (uS/cm);Clorofila (ug/L)
 23/01/2020;Centro-Weiss G;7.365643623;-0.06;6.34;20.9;445.2;2.13
 23/01/2020;Centro-Weiss G;7.390253568;-0.06;6.34;20.9;445.2;2.13
 23/01/2020;Centro-Weiss G;7.41858311;-0.06;6.34;20.9;445.2;2.13
@@ -598,3 +598,4 @@ Fecha;Sitio;pH;Turbidez (NTU);Oxígeno disuelto (mg/L);Temperatura (°C);Conduct
 6/03/2025;Lago de Amatitlán/Este Centro;9.21;24;11.84;23.78;603.6;18.39
 6/03/2025;Lago de Amatitlán/Bahía Playa de Oro;8.73;31;8.64;25;621.3;26.1
 6/03/2025;Lago de Amatitlán/Oeste Centro;9.13;21;12.19;24.38;672;48.53
+
