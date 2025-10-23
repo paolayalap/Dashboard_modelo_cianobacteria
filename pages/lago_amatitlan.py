@@ -290,32 +290,60 @@ with col_curve:
         st.pyplot(fig_loss, use_container_width=True)
         TRAIN_SCALER = None
         TRAIN_MODEL = None
-    else:
+   else:
+        # --- Split
         X_tr, X_te, y_tr, y_te = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
+    
+        # --- Escalado de X
         scaler = StandardScaler()
         X_tr_s = scaler.fit_transform(X_tr)
         X_te_s = scaler.transform(X_te)
-
+    
+        # --- Transformación del objetivo (clave para curvas "bonitas")
+        Y_LOG1P = True                      # <— entrenamos sobre log1p(y)
+        y_tr_t = np.log1p(y_tr) if Y_LOG1P else y_tr
+        y_te_t = np.log1p(y_te) if Y_LOG1P else y_te
+    
+        # --- Modelo
         model = keras.Sequential([
             layers.Input(shape=(X_tr_s.shape[1],)),
+            layers.Dense(128, activation="relu"),
+            layers.Dropout(0.15),
             layers.Dense(64, activation="relu"),
-            layers.Dropout(0.1),
-            layers.Dense(32, activation="relu"),
             layers.Dense(1)
         ])
-        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3), loss="mse")
-        hist = model.fit(X_tr_s, y_tr, validation_split=0.2, epochs=300, batch_size=32, verbose=0)
-
+    
+        # --- Pérdida robusta + callbacks
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+                      loss=keras.losses.Huber(delta=1.0))  # Huber >> MSE para outliers
+    
+        es = keras.callbacks.EarlyStopping(monitor="val_loss", patience=25,
+                                           restore_best_weights=True, verbose=0)
+        rl = keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5,
+                                               patience=12, min_lr=1e-6, verbose=0)
+    
+        hist = model.fit(
+            X_tr_s, y_tr_t,
+            validation_data=(X_te_s, y_te_t),
+            epochs=400, batch_size=32, verbose=0,
+            callbacks=[es, rl]
+        )
+    
+        # --- Curva de entrenamiento (opcional: escala log del eje Y si quieres)
         fig_loss, ax = plt.subplots()
         ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
         ax.plot(hist.history["val_loss"], label="Pérdida validación")
         ax.set_xlabel("Época"); ax.set_ylabel("Loss")
         ax.set_title("Curva de entrenamiento (Regresión NN sobre AMSA)")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
+        # ax.set_yscale("log")  # <- descomenta si prefieres la pérdida en escala log
         st.pyplot(fig_loss, use_container_width=True)
-
+    
+        # Guardar para inferencia posterior
         TRAIN_SCALER = scaler
         TRAIN_MODEL = model
+        TRAIN_Y_LOG1P = Y_LOG1P           # <— flag para des-transformar luego
+
 
 with col_note:
     st.info(
