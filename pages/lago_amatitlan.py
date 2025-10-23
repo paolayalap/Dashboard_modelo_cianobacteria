@@ -290,20 +290,21 @@ with col_curve:
         st.pyplot(fig_loss, use_container_width=True)
         TRAIN_SCALER = None
         TRAIN_MODEL = None
-   else:
+        TRAIN_Y_LOG1P = False
+    else:
         # --- Split
         X_tr, X_te, y_tr, y_te = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
-    
+
         # --- Escalado de X
         scaler = StandardScaler()
         X_tr_s = scaler.fit_transform(X_tr)
         X_te_s = scaler.transform(X_te)
-    
-        # --- Transformación del objetivo (clave para curvas "bonitas")
-        Y_LOG1P = True                      # <— entrenamos sobre log1p(y)
+
+        # --- Transformación del objetivo
+        Y_LOG1P = True
         y_tr_t = np.log1p(y_tr) if Y_LOG1P else y_tr
         y_te_t = np.log1p(y_te) if Y_LOG1P else y_te
-    
+
         # --- Modelo
         model = keras.Sequential([
             layers.Input(shape=(X_tr_s.shape[1],)),
@@ -312,38 +313,40 @@ with col_curve:
             layers.Dense(64, activation="relu"),
             layers.Dense(1)
         ])
-    
+
         # --- Pérdida robusta + callbacks
-        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-                      loss=keras.losses.Huber(delta=1.0))  # Huber >> MSE para outliers
-    
-        es = keras.callbacks.EarlyStopping(monitor="val_loss", patience=25,
-                                           restore_best_weights=True, verbose=0)
-        rl = keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5,
-                                               patience=12, min_lr=1e-6, verbose=0)
-    
+        model.compile(
+            optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+            loss=keras.losses.Huber(delta=1.0)
+        )
+        es = keras.callbacks.EarlyStopping(
+            monitor="val_loss", patience=25, restore_best_weights=True, verbose=0
+        )
+        rl = keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0
+        )
+
         hist = model.fit(
             X_tr_s, y_tr_t,
             validation_data=(X_te_s, y_te_t),
             epochs=400, batch_size=32, verbose=0,
             callbacks=[es, rl]
         )
-    
-        # --- Curva de entrenamiento (opcional: escala log del eje Y si quieres)
+
+        # --- Curva
         fig_loss, ax = plt.subplots()
         ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
         ax.plot(hist.history["val_loss"], label="Pérdida validación")
         ax.set_xlabel("Época"); ax.set_ylabel("Loss")
         ax.set_title("Curva de entrenamiento (Regresión NN sobre AMSA)")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
-        # ax.set_yscale("log")  # <- descomenta si prefieres la pérdida en escala log
+        # ax.set_yscale("log")  # <- opcional
         st.pyplot(fig_loss, use_container_width=True)
-    
+
         # Guardar para inferencia posterior
         TRAIN_SCALER = scaler
         TRAIN_MODEL = model
-        TRAIN_Y_LOG1P = Y_LOG1P           # <— flag para des-transformar luego
-
+        TRAIN_Y_LOG1P = Y_LOG1P
 
 with col_note:
     st.info(
@@ -354,7 +357,11 @@ with col_note:
         Una curva descendente y estable sugiere buen ajuste sin sobreajuste.
         """
     )
-    user_note = st.text_area("✍️ Puedes editar esta explicación:", value="La pérdida de validación converge sin aumentar, indicando buen generalizado.")
+    user_note = st.text_area(
+        "✍️ Puedes editar esta explicación:",
+        value="La pérdida de validación converge sin aumentar, indicando buen generalizado."
+    )
+
 
 # ------------------------- 3) Matrices difusas (SVM y KNN) + Nota -------------------------
 st.subheader("🧩 Matrices de confusión **difusas** con AMSA (SVM y KNN)")
