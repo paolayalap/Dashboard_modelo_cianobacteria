@@ -199,8 +199,9 @@ def align_proba_to_labels(proba: np.ndarray, classes_pred, labels_order):
     return out
 
 # ------------------------- 1) Tabla AMSA -------------------------
-DEFAULT_DIR = Path("datasets_lagos")
-DEFAULT_AMSA = DEFAULT_DIR / "DATOS AMSA.csv"  # ruta por defecto
+DEFAULT_DIR_AMSA = Path("datasets_lagos")
+DEFAULT_DIR_POND = Path("pruebas_piloto")
+DEFAULT_AMSA = DEFAULT_DIR_AMSA / "DATOS AMSA.csv"  # ruta por defecto AMSA
 
 st.subheader("📄 Datos AMSA — vista inicial")
 
@@ -361,7 +362,7 @@ st.subheader("🧪 Predicción y matrices (difusas) con datos del estanque")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
-    DEFAULT_POND = DEFAULT_DIR / "dataframe1.csv"
+    DEFAULT_POND = DEFAULT_DIR_POND / "dataframe1.csv"
 pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
 pond_path = Path(pond_path_input)
     if not pond_path.exists():
@@ -436,4 +437,3 @@ pond_path = Path(pond_path_input)
     st.success("Listo. Matrices del estanque generadas.")
 
 # ------------------------- Fin -------------------------
-
