@@ -417,25 +417,11 @@ user_note2 = st.text_area("✍️ Puedes editar esta explicación de las matrice
 st.subheader("🧪 Predicción y matrices (difusas) con datos del estanque")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
-tm = globals().get("TRAIN_MODEL", None)
-ts = globals().get("TRAIN_SCALER", None)
-ylog = globals().get("TRAIN_Y_LOG1P", False)
-
-if KERAS_OK and (tm is not None) and (ts is not None):
-    # Usar la red entrenada en la sección de la curva
-    Xp_s = ts.transform(Xp)
-    y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
-    y_proxy = np.expm1(y_pred_t) if ylog else y_pred_t  # des-transforma si entrenaste con log1p
-    y_true_p = np.clip(y_proxy, 0.0, None)
-    used_proxy = True
-else:
-    # Fallback robusto: centroides por clase SVM
-    pred_cls = np.argmax(proba_svm_p_al, axis=1)
-    centers = np.array([1.0, 4.5, 20.0, 60.0])
-    y_true_p = centers[pred_cls]
-    used_proxy = True
-
-
+if clicked:
+    # 1) Ruta / carga del CSV del estanque
+    DEFAULT_POND = DEFAULT_DIR_POND / "dataframe1.csv"
+    pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
+    pond_path = Path(pond_path_input)
 
     if not pond_path.exists():
         st.warning("No encuentro **dataframe1.csv** en la ruta indicada. Sube el archivo:")
@@ -446,8 +432,8 @@ else:
     else:
         df_pond = read_csv_robust(pond_path)
 
+    # 2) Normalización de encabezados y numéricos
     df_pond = normalize_columns(df_pond)
-
     have_true = TARGET in df_pond.columns
 
     for c in REQ_FEATURES + ([TARGET] if have_true else []):
@@ -459,6 +445,7 @@ else:
         st.error("El archivo del estanque no tiene filas válidas tras limpieza.")
         st.stop()
 
+    # 3) Matrices con SVM/KNN (probabilidades sobre X del estanque)
     Xp = df_pond[REQ_FEATURES].values
 
     proba_svm_p = svm_clf.predict_proba(Xp)
@@ -466,35 +453,50 @@ else:
     proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
     proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
 
+    # 4) "Verdad" para la matriz difusa:
+    #    - si el estanque trae clorofila real, úsala
+    #    - si no, intenta la red entrenada en la sección 2 (con des-transformación si log1p)
+    #    - si tampoco hay red, usa centroides por clase (fallback)
     if have_true:
         y_true_p = pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy()
         used_proxy = False
     else:
-        if KERAS_OK and (locals().get("TRAIN_MODEL") is not None) and (locals().get("TRAIN_SCALER") is not None):
-            Xp_s = TRAIN_SCALER.transform(Xp)
-            y_proxy = TRAIN_MODEL.predict(Xp_s, verbose=0).ravel()
+        tm  = globals().get("TRAIN_MODEL", None)
+        ts  = globals().get("TRAIN_SCALER", None)
+        ylg = globals().get("TRAIN_Y_LOG1P", False)
+
+        if KERAS_OK and (tm is not None) and (ts is not None):
+            Xp_s = ts.transform(Xp)
+            y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
+            y_proxy  = np.expm1(y_pred_t) if ylg else y_pred_t
             y_true_p = np.clip(y_proxy, 0.0, None)
             used_proxy = True
         else:
             pred_cls = np.argmax(proba_svm_p_al, axis=1)
-            centers = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados de rangos
+            centers  = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados de rangos
             y_true_p = centers[pred_cls]
             used_proxy = True
 
+    # 5) Matrices difusas con esas "verdades"
     cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4)
     cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4)
 
     cc1, cc2 = st.columns(2)
     with cc1:
-        st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_p, LABELS, "Matriz **difusa** — SVM (Estanque)"),
-                  use_container_width=True)
+        st.pyplot(
+            plot_confusion_matrix_pretty_float(cm_svm_p, LABELS, "Matriz **difusa** — SVM (Estanque)"),
+            use_container_width=True
+        )
         st.caption(f"Suma de pesos (SVM): {cm_svm_p.sum():.2f}")
     with cc2:
-        st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_p, LABELS, "Matriz **difusa** — KNN (Estanque)"),
-                  use_container_width=True)
+        st.pyplot(
+            plot_confusion_matrix_pretty_float(cm_knn_p, LABELS, "Matriz **difusa** — KNN (Estanque)"),
+            use_container_width=True
+        )
         st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
 
-    if not have_true:
-        st.caption("ℹ️ En el estanque se usó **proxy** de verdad de clorofila para la matriz difusa (no había columna de clorofila real).")
+    if used_proxy and not have_true:
+        st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz difusa (no había columna de clorofila real).")
 
     st.success("Listo. Matrices del estanque generadas.")
+
