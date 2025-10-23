@@ -1,101 +1,101 @@
-Fecha;Hora;Sitio;pH;Temperatura (∞C);Conductividad (µS/cm);O2 (mg/L);Turbidez (NTU);Clorofila (µg/L)
+Fecha;Hora;Sitio;pH;Temperatura (¬∞C);Conductividad (uS/cm);O2 (mg/L);Turbidez (NTU);Clorofila (ug/L)
 25-ene-17;10:15;Este centro;8.8;23.5;743;14.43;100;1,378.84
-25-ene-17;11:15;BahÌa Playa de Oro;8.52;23.8;760;12.92;93;401.9529
+25-ene-17;11:15;Bah√≠a Playa de Oro;8.52;23.8;760;12.92;93;401.9529
 25-ene-17;12:20;Oeste centro;8.38;23.9;768;14.15;26;187.286
-25-ene-17;13:00;RÌo Michatoya;8;23.1;782;9.61;233;1,948.05
+25-ene-17;13:00;R√≠o Michatoya;8;23.1;782;9.61;233;1,948.05
 14-feb-17;10:44;Este centro;9.09;23.5;582;16.71;25;234.8338
-14-feb-17;11:45;BahÌa Playa de Oro;8.66;24;605;8.76;18;189.5456
+14-feb-17;11:45;Bah√≠a Playa de Oro;8.66;24;605;8.76;18;189.5456
 14-feb-17;13:00;Oeste centro;8.4;24;691;11;17;74.5211
-14-feb-17;13:58;RÌo Michatoya;8.23;23.1;685;9.64;36;292.4832
+14-feb-17;13:58;R√≠o Michatoya;8.23;23.1;685;9.64;36;292.4832
 6-mar-17;10:15;Este centro;8.79;22.1;570;8.21;11;60.7425
-6-mar-17;11:15;BahÌa Playa de Oro;7.89;23;619;3.33;13;40.7175
+6-mar-17;11:15;Bah√≠a Playa de Oro;7.89;23;619;3.33;13;40.7175
 6-mar-17;12:30;Oeste centro;7.91;22.7;704;3.85;3;4.005
-6-mar-17;13:00;RÌo Michatoya;8.32;23;703;8.55;7;79.4325
+6-mar-17;13:00;R√≠o Michatoya;8.32;23;703;8.55;7;79.4325
 16-mar-17;09:38;Este centro;8.93;22.3;552;8.63;14;59.4075
 16-mar-17;11:20;Oeste centro;7.8;22.8;690;3.32;3;2.67
 5-abr-17;09:15;Este centro;9.17;24.4;608;13.5;29;97.9579
-5-abr-17;10:24;BahÌa Playa de Oro;9.2;29.1;680;21.2;220;465.9328
+5-abr-17;10:24;Bah√≠a Playa de Oro;9.2;29.1;680;21.2;220;465.9328
 5-abr-17;11:30;Oeste centro;8.3;28.8;803;4.84;14;33.5419
-5-abr-17;12:10;RÌo Michatoya;8.48;25;755;10.25;90;828.3764
+5-abr-17;12:10;R√≠o Michatoya;8.48;25;755;10.25;90;828.3764
 15-may-17;09:15;Este centro;9.54;26.2;629;19.42;41;178.0668
-15-may-17;10:24;BahÌa Playa de Oro;7.85;28.4;706;9.58;450;3,447.02
+15-may-17;10:24;Bah√≠a Playa de Oro;7.85;28.4;706;9.58;450;3,447.02
 15-may-17;11:30;Oeste centro;9.29;26.7;774;17.62;44;253.1338
-15-may-17;12:10;RÌo Michatoya;9.32;26.9;774;16.77;210;463.9392
+15-may-17;12:10;R√≠o Michatoya;9.32;26.9;774;16.77;210;463.9392
 14-jun-17;10:15;Este centro;9.39;26.7;640;10.31;34;103.1644
-14-jun-17;11:35;BahÌa Playa de Oro;8.79;26.5;670;2.03;49;114.365
+14-jun-17;11:35;Bah√≠a Playa de Oro;8.79;26.5;670;2.03;49;114.365
 14-jun-17;12:20;Oeste centro;9.49;25.9;728;9.36;40;159.9464
-14-jun-17;12:55;RÌo Michatoya;9.19;25.8;733;10.53;21;66.71
+14-jun-17;12:55;R√≠o Michatoya;9.19;25.8;733;10.53;21;66.71
 24-jul-17;11:00;Este centro;9.46;26.2;611;11.64;13;36.2608
-24-jul-17;12:00;BahÌa Playa de Oro;8.53;26.6;651;10.54;28;102.3723
+24-jul-17;12:00;Bah√≠a Playa de Oro;8.53;26.6;651;10.54;28;102.3723
 24-jul-17;12:45;Oeste centro;9.06;25.9;704;11.92;18;86.4665
-24-jul-17;13:25;RÌo Michatoya;9.48;26.5;715;17.15;22;97.317
+24-jul-17;13:25;R√≠o Michatoya;9.48;26.5;715;17.15;22;97.317
 9-ago-17;09:54;Este centro;9.27;25.8;587;9.9;10;60.1395
-9-ago-17;10:47;BahÌa Playa de Oro;8.14;27.6;659;4.21;22;39.5027
+9-ago-17;10:47;Bah√≠a Playa de Oro;8.14;27.6;659;4.21;22;39.5027
 9-ago-17;11:48;Oeste centro;9.2;28.7;737;10.7;160;194.7587
-9-ago-17;12:30;RÌo Michatoya;8.61;26.9;729;3.72;11;10.6355
+9-ago-17;12:30;R√≠o Michatoya;8.61;26.9;729;3.72;11;10.6355
 11-sep-17;10:15;Este centro;9.46;27.6;561;15.46;20;239.9785
-11-sep-17;11:14;BahÌa Playa de Oro;8.98;29.2;604;12.57;32;114.0535
+11-sep-17;11:14;Bah√≠a Playa de Oro;8.98;29.2;604;12.57;32;114.0535
 11-sep-17;12:10;Oeste centro;9.43;28.1;652;17.95;41;369.5058
-11-sep-17;13:15;RÌo Michatoya;9.38;28.1;657;0;270;1,461.42
+11-sep-17;13:15;R√≠o Michatoya;9.38;28.1;657;0;270;1,461.42
 3-oct-17;09:50;Este centro;8.8;25.8;566;12.08;46;299.574
-3-oct-17;10:51;BahÌa Playa de Oro;8.06;26;635;4.7;41;261.215
+3-oct-17;10:51;Bah√≠a Playa de Oro;8.06;26;635;4.7;41;261.215
 3-oct-17;11:52;Oeste centro;8;25.7;675;2.46;16;58.473
-3-oct-17;12:30;RÌo Michatoya;7.27;25.4;682;0.16;11;11.5848
+3-oct-17;12:30;R√≠o Michatoya;7.27;25.4;682;0.16;11;11.5848
 14-nov-17;09:30;Este centro;7.59;23.2;622;0.71;16;21.36
-14-nov-17;10:25;BahÌa Playa de Oro;7.92;24;653;6.3;19;81.702
+14-nov-17;10:25;Bah√≠a Playa de Oro;7.92;24;653;6.3;19;81.702
 14-nov-17;11:20;Oeste centro;7.56;24;710;0.83;25;31.328
-14-nov-17;12:00;RÌo Michatoya;7.57;24;709;0.19;21;31.684
+14-nov-17;12:00;R√≠o Michatoya;7.57;24;709;0.19;21;31.684
 6-dic-17;10:03;Este centro;7.95;22.9;632;5.46;9;68.1443
-6-dic-17;11:11;BahÌa Playa de Oro;8.35;23.2;660;8.47;21;88.6143
+6-dic-17;11:11;Bah√≠a Playa de Oro;8.35;23.2;660;8.47;21;88.6143
 6-dic-17;11:56;Oeste centro;7.48;23;735;2.79;13;21.0752
-6-dic-17;12:40;RÌo Michatoya;8.01;24.1;734;7.23;24;47.1522
+6-dic-17;12:40;R√≠o Michatoya;8.01;24.1;734;7.23;24;47.1522
 10-ene-18;10:17;Este centro;8.19;21.4;624;9.1;12;82.9035
-10-ene-18;11:25;BahÌa Playa de Oro;8.51;23.4;659;11.66;23;91.67
+10-ene-18;11:25;Bah√≠a Playa de Oro;8.51;23.4;659;11.66;23;91.67
 10-ene-18;12:25;Oeste centro;7.63;22.9;757;3.08;11;18.9867
-10-ene-18;12:40;RÌo Michatoya;7.63;23.2;753;4.25;11;78.32
+10-ene-18;12:40;R√≠o Michatoya;7.63;23.2;753;4.25;11;78.32
 5-feb-18;10:35;Este centro;8.47;21.6;618;10.68;8;69.331
-5-feb-18;11:45;BahÌa Playa de Oro;8.64;22.5;644;13.28;27;134.657
+5-feb-18;11:45;Bah√≠a Playa de Oro;8.64;22.5;644;13.28;27;134.657
 5-feb-18;12:45;Oeste centro;8.06;21.8;743;8.78;15;134.7905
-5-feb-18;13:35;RÌo Michatoya;8.15;22.2;740;10.96;15;113.831
+5-feb-18;13:35;R√≠o Michatoya;8.15;22.2;740;10.96;15;113.831
 12-mar-18;10:00;Este centro;9.27;22.5;618;15.42;20;280.706
-12-mar-18;11:00;BahÌa Playa de Oro;8.32;26;698;11.22;16;68.307
+12-mar-18;11:00;Bah√≠a Playa de Oro;8.32;26;698;11.22;16;68.307
 12-mar-18;12:41;Oeste centro;7.68;24.3;788;2.8;2;4.2542
-12-mar-18;13:00;RÌo Michatoya;7.8;24.1;789;388;5;24.1368
+12-mar-18;13:00;R√≠o Michatoya;7.8;24.1;789;388;5;24.1368
 2-abr-18;10:25;Este centro;9.16;24.9;595;10.18;5;32.2625
-2-abr-18;11:34;BahÌa Playa de Oro;8.88;26;646;11.61;17;82.236
+2-abr-18;11:34;Bah√≠a Playa de Oro;8.88;26;646;11.61;17;82.236
 2-abr-18;12:45;Oeste centro;8.89;24.9;748;12.63;5;100.926
-2-abr-18;13:55;RÌo Michatoya;9.63;27.3;731;17.14;69;847.28
+2-abr-18;13:55;R√≠o Michatoya;9.63;27.3;731;17.14;69;847.28
 7-may-18;10:55;Este centro;9.48;22;620;11.26;15;153.614
-7-may-18;12:00;BahÌa Playa de Oro;8.29;22.9;697;4.9;17;137.327
+7-may-18;12:00;Bah√≠a Playa de Oro;8.29;22.9;697;4.9;17;137.327
 7-may-18;13:02;Oeste centro;9.17;22.6;770;13.97;9;144.892
-7-may-18;14:00;RÌo Michatoya;9.44;22.9;773;18.14;12;416.0083
+7-may-18;14:00;R√≠o Michatoya;9.44;22.9;773;18.14;12;416.0083
 4-jun-18;10:27;Este centro;9.99;25.9;598;11.24;12;70.67
-4-jun-18;11:47;BahÌa Playa de Oro;8.68;26.2;676;1.59;34;206.04
+4-jun-18;11:47;Bah√≠a Playa de Oro;8.68;26.2;676;1.59;34;206.04
 4-jun-18;12:46;Oeste centro;9.81;26.1;724;17.96;29;305.63
 2-jul-18;10:20;Este centro;9.72;26.6;581;10.98;9;34.087
-2-jul-18;11:14;BahÌa Playa de Oro;8.8;25.9;650;5.93;25;141.51
+2-jul-18;11:14;Bah√≠a Playa de Oro;8.8;25.9;650;5.93;25;141.51
 2-jul-18;12:14;Oeste centro;9.5;25.8;689;13.42;24;235.316
-2-jul-18;13:05;RÌo Michatoya;9.96;27;692;14.6;81;999.915
+2-jul-18;13:05;R√≠o Michatoya;9.96;27;692;14.6;81;999.915
 6-ago-18;10:40;Este centro;9.76;25.1;583;10.42;20;65.504
-6-ago-18;11:51;BahÌa Playa de Oro;8.54;26;645;4.03;31;108.58
+6-ago-18;11:51;Bah√≠a Playa de Oro;8.54;26;645;4.03;31;108.58
 6-ago-18;13:00;Oeste centro;9.13;25;716;6.57;20;65.0056
-6-ago-18;14:00;RÌo Michatoya;9.53;26.7;706;13.08;54;462.444
+6-ago-18;14:00;R√≠o Michatoya;9.53;26.7;706;13.08;54;462.444
 3-sep-18;10:25;Este centro;9.78;25.9;570;10.01;11;83.06
-3-sep-18;11:10;BahÌa Playa de Oro;8.43;25.9;647;4.76;15;88.29
+3-sep-18;11:10;Bah√≠a Playa de Oro;8.43;25.9;647;4.76;15;88.29
 3-sep-18;12:06;Oeste centro;9.45;26.2;695;13.4;36;404.34
-3-sep-18;12:50;RÌo Michatoya;9.43;26;692;13.21;51;353.33
+3-sep-18;12:50;R√≠o Michatoya;9.43;26;692;13.21;51;353.33
 1-oct-18;10:50;Este centro;9.58;25;560;6.05;6;34.11
-1-oct-18;12:07;BahÌa Playa de Oro;8.37;25.6;653;4.8;18;74.23
-1-oct-18;13:08;BahÌa Playa de Oro;8.76;24.9;700;3.26;13;64.73
-1-oct-18;13:58;BahÌa Playa de Oro;9.11;25.6;689;9.79;23;161.54
+1-oct-18;12:07;Bah√≠a Playa de Oro;8.37;25.6;653;4.8;18;74.23
+1-oct-18;13:08;Bah√≠a Playa de Oro;8.76;24.9;700;3.26;13;64.73
+1-oct-18;13:58;Bah√≠a Playa de Oro;9.11;25.6;689;9.79;23;161.54
 5-nov-18;10:40;Este centro;9.73;20.4;678;13.36;30;168.5067
-5-nov-18;12:10;BahÌa Playa de Oro;9.04;25.8;659;12.17;28;156.996
+5-nov-18;12:10;Bah√≠a Playa de Oro;9.04;25.8;659;12.17;28;156.996
 5-nov-18;13:40;Oeste centro;8.55;20.4;778;7.06;8;80.2187
-5-nov-18;14:32;RÌo Michatoya;8.86;26.3;667;12.36;18;129.94
+5-nov-18;14:32;R√≠o Michatoya;8.86;26.3;667;12.36;18;129.94
 3-dic-18;11:00;Este centro;9.53;26;619;14.95;170;161.268
-3-dic-18;12:32;BahÌa Playa de Oro;9.14;27.4;655;13.6;81;125.668
+3-dic-18;12:32;Bah√≠a Playa de Oro;9.14;27.4;655;13.6;81;125.668
 3-dic-18;13:34;Oeste centro;8.19;25.8;731;6.43;22;73.514
-3-dic-18;14:16;RÌo Michatoya;8.35;26;706;9.2;25;92.204
+3-dic-18;14:16;R√≠o Michatoya;8.35;26;706;9.2;25;92.204
 7-ene-19;10:51;Este centro;8.54;22.6;626;6.8;23;130.8893
 7-ene-19;12:45;Oeste centro;7.6;22.5;733;1.8;19;71.3187
 4-feb-19;10:56;Este centro;9.02;24.1;619;13.31;28;75.12
@@ -120,208 +120,209 @@ Fecha;Hora;Sitio;pH;Temperatura (∞C);Conductividad (µS/cm);O2 (mg/L);Turbidez (N
 4-nov-19;12:32;Oeste centro;7.75;24.7;660;0.42;12;9.49
 2-dic-19;11:00;Este centro;8;23.8;625;0.61;11;25.51
 2-dic-19;12:56;Oeste centro;7.67;24.1;662;0.58;9;25.04
-5-may-21;09:25;Lago de Amatitl·n/Este Centro;9.43;25.1;646;5.07;122;918.84
-5-may-21;09:30;Lago de Amatitl·n/Este Centro;8.9;21.1;649;3.14;23;886.6
-5-may-21;09:50;Lago de Amatitl·n/Este Centro;8.65;24;649;2.74;15;268.07
-5-may-21;10:15;Lago de Amatitl·n/Este Centro;7.73;22.6;662;0.06;6;194.38
-5-may-21;10:35;Lago de Amatitl·n/BahÌa Playa de Oro;8.71;28.1;647;4.81;2670;886.6
-5-may-21;10:55;Lago de Amatitl·n/BahÌa Playa de Oro;8;27.4;677;0.08;27;7.69
-5-may-21;11:50;Lago de Amatitl·n/Oeste Centro;9.26;26.8;734;17.6;44;268.07
-5-may-21;11:55;Lago de Amatitl·n/Oeste Centro;8.7;24.7;750;3.75;31;137.77
-5-may-21;12:00;Lago de Amatitl·n/Oeste Centro;7.88;24;751;0.11;13;121.75
-5-may-21;12:15;Lago de Amatitl·n/Oeste Centro;7.54;22.9;757;0.05;16;334.28
-5-may-21;12:25;Lago de Amatitl·n/RÌo Michatoya ;8.5;25.2;740;9.35;45;194.38
-5-may-21;12:32;Lago de Amatitl·n/Playa P˙blica;8.97;26.8;736;11.28;98;166.96
-7-jun-21;10:47;Lago de Amatitl·n/BahÌa Playa de Oro;9.06;29.3;627;12.67;41;121.75
-7-jun-21;11:50;Lago de Amatitl·n/Oeste Centro;9.59;27.7;703;18.44;61;334.28
-7-jun-21;13:05;Lago de Amatitl·n/RÌo Michatoya ;9.49;27.5;698;18.04;44;279.46
-7-jun-21;13:15;Lago de Amatitl·n/Playa P˙blica;9.46;27.6;702;16.16;40;387.68
-7-jul-21;09:11;Lago de Amatitl·n/Este Centro;9.35;26.7;641;9.03;8;44.86
-7-jul-21;10:39;Lago de Amatitl·n/BahÌa Playa de Oro;8.83;28.1;643;11.58;37;106.09
-7-jul-21;12:00;Lago de Amatitl·n/Oeste Centro;9.33;27.9;683;15.59;60;271.27
-7-jul-21;13:01;Lago de Amatitl·n/RÌo Michatoya ;9.41;29.1;677;18.51;47;204.34
-7-jul-21;13:14;Lago de Amatitl·n/Playa P˙blica;9.32;28.6;684;19.36;44;174.8
-3-ago-21;08:54;Lago de Amatitl·n/Este Centro;9.52;26.3;635;13.79;25;272.34
-3-ago-21;10:21;Lago de Amatitl·n/BahÌa Playa de Oro;8.84;27.6;640;13.55;29;242.79
-3-ago-21;11:42;Lago de Amatitl·n/Oeste Centro;9.22;26.4;675;14.33;22;227.84
-3-ago-21;12:32;Lago de Amatitl·n/RÌo Michatoya ;9.4;26.9;670;14.7;49;342.83
-3-ago-21;12:45;Lago de Amatitl·n/Playa P˙blica;9.48;27.9;668;17.72;72;352.44
-7-sep-21;09:56;Lago de Amatitl·n/Este Centro;9.55;26.6;618;10.47;6;55.89
-7-sep-21;11:08;Lago de Amatitl·n/BahÌa Playa de Oro;9.16;26.9;609;13.61;27;167.32
-7-sep-21;12:10;Lago de Amatitl·n/Oeste Centro;9.3;27;629;14.09;19;308.65
-7-sep-21;12:54;Lago de Amatitl·n/RÌo Michatoya ;9.56;26.3;628;16.62;21;317.55
-7-sep-21;13:04;Lago de Amatitl·n/Playa P˙blica;9.64;27.6;621;18.86;22;453.9
-5-oct-21;09:53;Lago de Amatitl·n/Este Centro;9.69;27;591;14.03;9;157
-5-oct-21;11:10;Lago de Amatitl·n/BahÌa Playa de Oro;8.72;26.6;617;8.08;26;170.52
-5-oct-21;11:52;Lago de Amatitl·n/Oeste Centro;8.94;26.1;623;9.57;19;215.74
-5-oct-21;12:26;Lago de Amatitl·n/RÌo Michatoya ;9.07;26;620;10.16;25;247.06
-5-oct-21;12:36;Lago de Amatitl·n/Playa P˙blica;9.11;26.3;618;11.27;23;246
-2-nov-21;09:48;Lago de Amatitl·n/Este Centro;9.21;25.4;599;7.14;9;109.65
-2-nov-21;11:20;Lago de Amatitl·n/BahÌa Playa de Oro;7.79;25.5;632;1.05;26;88.64
-2-nov-21;12:24;Lago de Amatitl·n/Oeste Centro;7.79;24.9;640;5.07;16;65.86
-2-nov-21;13:14;Lago de Amatitl·n/RÌo Michatoya ;7.88;25;640;2.22;16;78.32
-2-nov-21;13:22;Lago de Amatitl·n/Playa P˙blica;7.84;25.4;640;2.54;14;72.27
-1-dic-21;10:15;Lago de Amatitl·n/Este Centro;8.24;23;637;3.06;6;47.35
-1-dic-21;11:15;Lago de Amatitl·n/BahÌa Playa de Oro;8.46;22.9;624;7.74;13;177.29
-1-dic-21;12:10;Lago de Amatitl·n/Oeste Centro;7.78;23.3;666;2.38;10;67.28
-1-dic-21;12:52;Lago de Amatitl·n/RÌo Michatoya ;7.81;24.1;670;2.82;6;21.36
-1-dic-21;13:02;Lago de Amatitl·n/Playa P˙blica;7.75;26.5;668;1.86;7;30.26
-4/01/2023;-;Lago de Amatitl·n/Este Centro;9.21;24.58;623.2;12.98;76;318.98
-4/01/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;9.21;23.95;606.9;3.66;33;217.52
-4/01/2023;-;Lago de Amatitl·n/Oeste Centro;8.52;23.85;615.7;10.65;19;169.81
-4/01/2023;-;Lago de Amatitl·n/RÌo Michatoya ;8.62;23.9;413;11.67;18;273.76
-4/01/2023;-;Lago de Amatitl·n/Playa P˙blica;8.81;24.2;416;14.38;82;585.62
-2/02/2023;-;Lago de Amatitl·n/Este Centro;8.77;22.7;627.4;10.65;24;134.21
-2/02/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;8.31;22.38;615.7;6.89;18;100.04
-2/02/2023;-;Lago de Amatitl·n/Oeste Centro;8.27;23.06;636.8;8.6;14;137.77
-2/02/2023;-;Lago de Amatitl·n/RÌo Michatoya ;8.31;23.1;420;8.78;14;170.17
-2/02/2023;-;Lago de Amatitl·n/Playa P˙blica;8.37;23.4;421;9.16;17;175.86
-2/03/2023;-;Lago de Amatitl·n/Este Centro;8.83;24.41;634.6;10.15;43;134.21
-2/03/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;9.28;26.39;607.9;21.52;45;100.04
-2/03/2023;-;Lago de Amatitl·n/Oeste Centro;8.69;25.05;657.5;12.4;23;137.77
-2/03/2023;-;Lago de Amatitl·n/RÌo Michatoya ;9.1;27.51;656.8;18.82;44;170.17
-2/03/2023;-;Lago de Amatitl·n/Playa P˙blica;8.88;25.74;654.8;20.05;32;175.86
-10/04/2023;-;Lago de Amatitl·n/Este Centro;9.36;24.82;631.7;11.01;32;59.1
-10/04/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;8.6;25.18;620.3;21.52;27;65.5
-10/04/2023;-;Lago de Amatitl·n/Oeste Centro;8.13;24.9;669.8;5.6;21;87.58
-10/04/2023;-;Lago de Amatitl·n/RÌo Michatoya ;8.54;24.53;679.6;8.16;45;156.64
-10/04/2023;-;Lago de Amatitl·n/Playa P˙blica;8.54;25.19;676.3;10.35;41;161.98
-2/05/2023;-;Lago de Amatitl·n/Este Centro;9.31;26.3;637;10.16;11;39.52
-2/05/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;8.9;27.86;643.4;15.29;56;210.4
-2/05/2023;-;Lago de Amatitl·n/Oeste Centro;8.99;26.95;688.1;12.05;53;284.8
-2/05/2023;-;Lago de Amatitl·n/RÌo Michatoya ;9.13;27.45;760.6;14.69;4,900;176006.4
-2/05/2023;-;Lago de Amatitl·n/Playa P˙blica;8.6;26.99;690.2;14.3;135;687.79
-7/06/2023;-;Lago de Amatitl·n/Este Centro;9.95;26.93;608.6;18.2;139;685.66
-7/06/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;8.3;26.33;623;2.89;40;151.66
-7/06/2023;-;Lago de Amatitl·n/Oeste Centro;9.33;26.95;671.8;13.99;47;225.7
-7/06/2023;-;Lago de Amatitl·n/RÌo Michatoya ;9.6;28.38;677.8;21.61;92;187.26
-7/06/2023;-;Lago de Amatitl·n/Playa P˙blica;9.48;27.72;670.4;209.9;84;375.22
-10/07/2023;-;Lago de Amatitl·n/Este Centro;9.63;25.78;582.5;9.97;39;135.28
-10/07/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;7.77;25.89;624.7;0.84;20;72.98
-10/07/2023;-;Lago de Amatitl·n/Oeste Centro;9;26.21;629.4;7.42;20;94.7
-10/07/2023;-;Lago de Amatitl·n/RÌo Michatoya ;9.61;27.67;633;19.58;91;573.16
-10/07/2023;-;Lago de Amatitl·n/Playa P˙blica;9.45;27.74;632.9;20.04;67;339.27
-1/08/2023;-;Lago de Amatitl·n/Este Centro;9.49;25.97;594;10.31;16;87.58
-1/08/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;8.76;25.7;608.4;10.33;27;169.1
-1/08/2023;-;Lago de Amatitl·n/Oeste Centro;8.64;25.17;617.7;8.42;31;190.82
-1/08/2023;-;Lago de Amatitl·n/RÌo Michatoya ;8.98;25.87;615;12.03;49;232.47
-1/08/2023;-;Lago de Amatitl·n/Playa P˙blica;9.21;26.24;612.1;19.01;63;384.84
-4/09/2023;-;Lago de Amatitl·n/Este Centro;9.5;26.53;565.5;12.6;13;102.17
-4/09/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;8.74;26.52;594.2;6.48;29;118.9
-4/09/2023;-;Lago de Amatitl·n/Oeste Centro;8.73;26.85;599.7;8.88;20;127.8
-4/09/2023;-;Lago de Amatitl·n/RÌo Michatoya ;9.37;27.58;587.5;19.5;63;407.26
-4/09/2023;-;Lago de Amatitl·n/Playa P˙blica;9.21;27.74;632.9;20.04;61;430.76
-2/10/2023;-;Lago de Amatitl·n/Este Centro;9.39;26.94;553.2;7.43;18;80.1
-2/10/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;8.8;27.17;594.1;10.03;26;116.77
-2/10/2023;-;Lago de Amatitl·n/Oeste Centro;8.39;29.86;599.2;4.2;15;48.06
-2/10/2023;-;Lago de Amatitl·n/RÌo Michatoya ;9.14;26.86;596.2;12.51;27;173.37
-2/10/2023;-;Lago de Amatitl·n/Playa P˙blica;8.94;27.04;597.6;13.44;25;173.73
-2/11/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;7.84;24.21;623;1.55;15;53.04
-2/11/2023;-;Lago de Amatitl·n/Oeste Centro;7.78;24.3;602.5;0.44;8;37.02
-2/11/2023;-;Lago de Amatitl·n/RÌo Michatoya ;8.02;24.25;592.2;2.87;14;90.42
-2/11/2023;-;Lago de Amatitl·n/Playa P˙blica;7.78;24.25;595.8;2.01;10;75.12
-4/12/2023;-;Lago de Amatitl·n/Este Centro;8.2;24.2;603.3;3.99;10;54.11
-4/12/2023;-;Lago de Amatitl·n/BahÌa Playa de Oro;8.52;25.05;614;8.88;22;163.4
-4/12/2023;-;Lago de Amatitl·n/Oeste Centro;7.56;24.08;621.8;0.7;7;24.21
-4/12/2023;-;Lago de Amatitl·n/RÌo Michatoya ;7.73;24.15;619.7;1.31;6;27.06
-4/12/2023;-;Lago de Amatitl·n/Playa P˙blica;7.85;24.58;621.4;2.4;7;33.82
-9/01/2024;10:19;Lago de Amatitl·n/Este Centro;8.62;23.85;609.7;12.28;14;80.81
-9/01/2024;11:15;Lago de Amatitl·n/BahÌa Playa de Oro;8.56;25.31;610.3;16.67;181;165.9
-9/01/2024;12:20;Lago de Amatitl·n/Oeste Centro;8.07;25.18;677;5.55;28;28.3
-9/01/2024;13:06;Lago de Amatitl·n/RÌo Michatoya ;7.7;24.88;651.4;2.21;6;16.38
-9/01/2024;13:16;Lago de Amatitl·n/Playa P˙blica;7.8;24.58;653.8;2.51;5;13.53
-5/02/2024;09:25;Lago de Amatitl·n/Este Centro;8.52;23.07;609.8;6.83;9;18.87
-5/02/2024;10:30;Lago de Amatitl·n/BahÌa Playa de Oro;8.82;24.46;633.9;14.1;33;34.89
-5/02/2024;11:51;Lago de Amatitl·n/Oeste Centro;8.03;24.21;675.8;3.7;7;18.51
-5/02/2024;12:29;Lago de Amatitl·n/RÌo Michatoya ;7.91;23.2;678.9;2.36;5;12.64
-5/02/2024;12:36;Lago de Amatitl·n/Playa P˙blica;7.79;23.2;682.9;1.6;6;12.82
-4/03/2024;09:48;Lago de Amatitl·n/Este Centro;9.42;25.13;602.5;16.24;191;58.21
-4/03/2024;10:55;Lago de Amatitl·n/BahÌa Playa de Oro;9.21;27.78;613.3;23.08;53;64.08
-4/03/2024;12:04;Lago de Amatitl·n/Oeste Centro;8.15;24.21;675.8;3.7;6;19.94
-4/03/2024;12:29;Lago de Amatitl·n/RÌo Michatoya ;7.91;23.2;678.9;2.36;137;35.07
-4/03/2024;12:36;Lago de Amatitl·n/Playa P˙blica;7.79;23.2;682.9;1.6;12;33.82
-2/04/2024;09:45;Lago de Amatitl·n/Este Centro;9.4;25.84;610.6;12.08;40;105.73
-2/04/2024;10:53;Lago de Amatitl·n/BahÌa Playa de Oro;8.79;26.68;630;10.94;370;112.85
-2/04/2024;12:20;Lago de Amatitl·n/Oeste Centro;8.4;26.29;706.3;5.01;51;64.79
-2/04/2024;12:49;Lago de Amatitl·n/RÌo Michatoya ;7.83;27.48;710.8;5.01;40;100.75
-2/04/2024;12:59;Lago de Amatitl·n/Playa P˙blica;8.48;26.45;705.6;4.89;66;200.25
-6/05/2024;09:45;Lago de Amatitl·n/Este Centro;9.547;27.7;618;13.17;27;44.5
-6/05/2024;10:44;Lago de Amatitl·n/BahÌa Playa de Oro;9.418;27.9;606;14.43;115;100.93
-6/05/2024;11:53;Lago de Amatitl·n/Oeste Centro;9.345;28.5;707;17.35;41;99.32
-6/05/2024;12:40;Lago de Amatitl·n/RÌo Michatoya ;9.523;28.9;703;18.34;368;1195
-6/05/2024;12:55;Lago de Amatitl·n/Playa P˙blica;9.498;29;704;18.95;254;312.92
-3/06/2024;09:41;Lago de Amatitl·n/Este Centro;9.284;27.4;627;7.17;19;30.62
-3/06/2024;10:38;Lago de Amatitl·n/BahÌa Playa de Oro;8.769;27.7;633;7.06;115;74.05
-3/06/2024;12:09;Lago de Amatitl·n/Oeste Centro;9.371;28.7;721;18.35;55;182.98
-3/06/2024;12:55;Lago de Amatitl·n/RÌo Michatoya ;9.015;28.4;730;11.19;64;98.26
-3/06/2024;13:11;Lago de Amatitl·n/Playa P˙blica;9.059;27.9;731;11.88;33;71.91
-4/07/2024;09:51;Lago de Amatitl·n/Este Centro;9.271;25.4;602;8.82;25;38.8
-4/07/2024;10:51;Lago de Amatitl·n/BahÌa Playa de Oro;8.163;25;629;1.14;41;73.34
-4/07/2024;12:15;Lago de Amatitl·n/Oeste Centro;8.107;25.2;668;2.85;16;29.19
-4/07/2024;13:00;Lago de Amatitl·n/RÌo Michatoya ;8.555;25.6;669;8.24;29;63.01
-4/07/2024;13:10;Lago de Amatitl·n/Playa P˙blica;8.58;25.1;670;8.01;30;68.71
-6/08/2024;10:21;Lago de Amatitl·n/Este Centro;9.429;25.8;585;11.9;20;34.53
-6/08/2024;11:12;Lago de Amatitl·n/BahÌa Playa de Oro;8.901;26;616;9.17;33;59.33
-6/08/2024;12:35;Lago de Amatitl·n/Oeste Centro;8.692;25.8;624;8.14;21;76.89
-6/08/2024;13:18;Lago de Amatitl·n/RÌo Michatoya ;9.274;26.4;613;8.9;37;102.73
-6/08/2024;13:25;Lago de Amatitl·n/Playa P˙blica;9.541;27.7;608;17.97;40;109.88
-2/09/2024;10:27;Lago de Amatitl·n/Este Centro;9.688;27.1;572;15.02;30;41.47
-2/09/2024;11:10;Lago de Amatitl·n/BahÌa Playa de Oro;9.063;28.5;614;15.26;27;40.58
-2/09/2024;12:31;Lago de Amatitl·n/Oeste Centro;9.301;29.3;617;16.1;42;118.88
-2/09/2024;13:17;Lago de Amatitl·n/RÌo Michatoya ;9.346;27.7;618;13.5;294;455.08
-2/09/2024;13:27;Lago de Amatitl·n/Playa P˙blica;9.336;27.7;622;13.89;95;136.76
-1/10/2024;09:53;Lago de Amatitl·n/Este Centro;9.4;25.4;566.8;8.19;11;37.02
-1/10/2024;11:00;Lago de Amatitl·n/BahÌa Playa de Oro;8.64;26.57;607.7;11.73;44;108.23
-1/10/2024;12:31;Lago de Amatitl·n/Oeste Centro;9.301;29.3;617;16.1;14;40.46
-1/10/2024;13:15;Lago de Amatitl·n/RÌo Michatoya ;7.73;24.49;606.4;0;8;35.36
-1/10/2024;13:27;Lago de Amatitl·n/Playa P˙blica;7.99;25.44;603.8;3.65;9;14
-5/11/2024;10:36;Lago de Amatitl·n/Este Centro;8.61;26.14;604.2;5.24;32;40.11
-5/11/2024;11:38;Lago de Amatitl·n/BahÌa Playa de Oro;8.72;28.16;612.8;18.89;26;85.78
-5/11/2024;13:00;Lago de Amatitl·n/Oeste Centro;8.49;26.53;588.9;10.58;14;59.93
-5/11/2024;13:41;Lago de Amatitl·n/RÌo Michatoya ;8.38;26.03;586.8;8.44;16;78.55
-5/11/2024;13:47;Lago de Amatitl·n/Playa P˙blica;8.4;26.64;587.8;12.52;17;85.56
-2/12/2024;10:13;Lago de Amatitl·n/Este Centro;7.88;23.31;611.8;1.66;11;18.39
-2/12/2024;11:40;Lago de Amatitl·n/BahÌa Playa de Oro;8;22.92;626;3;11;12
-2/12/2024;13:01;Lago de Amatitl·n/Oeste Centro;7.37;21.44;415.9;0.17;9;20.17
-2/12/2024;13:46;Lago de Amatitl·n/RÌo Michatoya ;7.71;23.25;603.7;2.27;9;33.7
-2/12/2024;13:59;Lago de Amatitl·n/Playa P˙blica;7.7;23.27;606.2;2.07;8;34.53
-7/01/2025;09:48;Lago de Amatitl·n/Este Centro;8.19;22.6;610.6;6.95;8;32.04
-7/01/2025;11:12;Lago de Amatitl·n/BahÌa Playa de Oro;8.34;22.95;620.3;7;16;31.57
-7/01/2025;13:10;Lago de Amatitl·n/Oeste Centro;7.62;22.36;632.7;1.59;8;17.45
-7/01/2025;14:07;Lago de Amatitl·n/RÌo Michatoya ;7.78;22.59;627.6;3.29;11;29.19
-7/01/2025;14:12;Lago de Amatitl·n/Playa P˙blica;7.77;22.56;628.6;2.67;10;28.95
-4/02/2025;10:03;Lago de Amatitl·n/Este Centro;8.32;22.3;608.6;7.27;11;14.71
-4/02/2025;11:27;Lago de Amatitl·n/BahÌa Playa de Oro;8.47;22.91;622.3;6.87;23;41.88
-4/02/2025;12:58;Lago de Amatitl·n/Oeste Centro;7.87;22.54;647.9;4.06;16;45.21
-4/02/2025;13:55;Lago de Amatitl·n/RÌo Michatoya ;8.15;22.56;642.6;6.56;13;44.5
-4/02/2025;14:02;Lago de Amatitl·n/Playa P˙blica;8.37;23.24;642.6;9.39;15;49.36
-6/03/2025;10:07;Lago de Amatitl·n/Este Centro;9.21;23.78;603.6;11.84;24;18.39
-6/03/2025;11:20;Lago de Amatitl·n/BahÌa Playa de Oro;8.73;25;621.3;8.64;31;26.1
-6/03/2025;12:43;Lago de Amatitl·n/Oeste Centro;9.13;24.38;672;12.19;21;48.53
-6/03/2025;13:31;Lago de Amatitl·n/RÌo Michatoya ;9.37;24.84;669;16.32;122;118.66
-6/03/2025;13:40;Lago de Amatitl·n/Playa P˙blica;9.05;24.61;657.2;13.41;34;40.23
-1/04/2025;09:50;Lago de Amatitl·n/Este Centro;9.69;25.62;603.1;13.53;32;15.55
-1/04/2025;10:55;Lago de Amatitl·n/BahÌa Playa de Oro;8.68;27.5;647.9;5.17;75;105.02
-1/04/2025;12:23;Lago de Amatitl·n/Oeste Centro;9.3;26.37;682.7;16.23;34;61.23
-1/04/2025;13:24;Lago de Amatitl·n/RÌo Michatoya ;8.71;25.6;691;14.85;621;281.59
-1/04/2025;13:34;Lago de Amatitl·n/Playa P˙blica;9.13;26.42;682;16.34;65;112.58
-5/05/2025;10:13;Lago de Amatitl·n/Este Centro;9.46;26.35;611.9;9.99;9;38.8
-5/05/2025;11:46;Lago de Amatitl·n/BahÌa Playa de Oro;9.01;28.04;316.4;11.28;56;98.1
-5/05/2025;13:21;Lago de Amatitl·n/Oeste Centro;9.43;28.13;374;17;80;36.07
-5/05/2025;14:13;Lago de Amatitl·n/RÌo Michatoya ;9.4;28.07;273.5;14.61;71;122.9
-5/05/2025;14:18;Lago de Amatitl·n/Playa P˙blica;9.48;29.02;272.4;16.51;96;74.58
-3/06/2025;09:54;Lago de Amatitl·n/Este Centro;9.6;26.59;229;15.88;28;87.57
-3/06/2025;11:04;Lago de Amatitl·n/BahÌa Playa de Oro;8.21;27.99;236.9;0;96;97.9
-3/06/2025;12:30;Lago de Amatitl·n/Oeste Centro;9.43;28.72;239.7;18.78;21;22.31
-3/06/2025;13:20;Lago de Amatitl·n/RÌo Michatoya ;9.69;28.57;229;22.05;1,950;291.62
-3/06/2025;13:38;Lago de Amatitl·n/Playa P˙blica;10.02;28.78;230.5;25.35;79;53.4
-2/07/2025;09:53;Lago de Amatitl·n/Este Centro;9.69;26.93;237.2;11.68;33;62.42
-2/07/2025;10:56;Lago de Amatitl·n/BahÌa Playa de Oro;8.44;26.02;284;7.05;33;99.92
-2/07/2025;12:16;Lago de Amatitl·n/Oeste Centro;9.25;26.57;273.3;6.64;9;32.04
-2/07/2025;13:07;Lago de Amatitl·n/RÌo Michatoya ;9.45;27.12;357.6;13.54;50;63.72
-2/07/2025;13:13;Lago de Amatitl·n/Playa P˙blica;8.57;26.79;386.2;12.57;30;46.99
-5/08/2025;10:10;Lago de Amatitl·n/Este Centro;9.495;25.6;569;10.73;33;35.84
-5/08/2025;11:09;Lago de Amatitl·n/BahÌa Playa de Oro;7.988;25;677;1.47;33;44.38
-5/08/2025;12:20;Lago de Amatitl·n/Oeste Centro;8.2;25.1;676;1.72;9;11.27
-5/08/2025;13:16;Lago de Amatitl·n/RÌo Michatoya ;8.354;25.4;674;2.33;50;4.15
-5/08/2025;13:25;Lago de Amatitl·n/Playa P˙blica;8.32;25.6;676;2.19;30;7
+5-may-21;09:25;Lago de Amatitl√°n/Este Centro;9.43;25.1;646;5.07;122;918.84
+5-may-21;09:30;Lago de Amatitl√°n/Este Centro;8.9;21.1;649;3.14;23;886.6
+5-may-21;09:50;Lago de Amatitl√°n/Este Centro;8.65;24;649;2.74;15;268.07
+5-may-21;10:15;Lago de Amatitl√°n/Este Centro;7.73;22.6;662;0.06;6;194.38
+5-may-21;10:35;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.71;28.1;647;4.81;2670;886.6
+5-may-21;10:55;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8;27.4;677;0.08;27;7.69
+5-may-21;11:50;Lago de Amatitl√°n/Oeste Centro;9.26;26.8;734;17.6;44;268.07
+5-may-21;11:55;Lago de Amatitl√°n/Oeste Centro;8.7;24.7;750;3.75;31;137.77
+5-may-21;12:00;Lago de Amatitl√°n/Oeste Centro;7.88;24;751;0.11;13;121.75
+5-may-21;12:15;Lago de Amatitl√°n/Oeste Centro;7.54;22.9;757;0.05;16;334.28
+5-may-21;12:25;Lago de Amatitl√°n/R√≠o Michatoya ;8.5;25.2;740;9.35;45;194.38
+5-may-21;12:32;Lago de Amatitl√°n/Playa P√∫blica;8.97;26.8;736;11.28;98;166.96
+7-jun-21;10:47;Lago de Amatitl√°n/Bah√≠a Playa de Oro;9.06;29.3;627;12.67;41;121.75
+7-jun-21;11:50;Lago de Amatitl√°n/Oeste Centro;9.59;27.7;703;18.44;61;334.28
+7-jun-21;13:05;Lago de Amatitl√°n/R√≠o Michatoya ;9.49;27.5;698;18.04;44;279.46
+7-jun-21;13:15;Lago de Amatitl√°n/Playa P√∫blica;9.46;27.6;702;16.16;40;387.68
+7-jul-21;09:11;Lago de Amatitl√°n/Este Centro;9.35;26.7;641;9.03;8;44.86
+7-jul-21;10:39;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.83;28.1;643;11.58;37;106.09
+7-jul-21;12:00;Lago de Amatitl√°n/Oeste Centro;9.33;27.9;683;15.59;60;271.27
+7-jul-21;13:01;Lago de Amatitl√°n/R√≠o Michatoya ;9.41;29.1;677;18.51;47;204.34
+7-jul-21;13:14;Lago de Amatitl√°n/Playa P√∫blica;9.32;28.6;684;19.36;44;174.8
+3-ago-21;08:54;Lago de Amatitl√°n/Este Centro;9.52;26.3;635;13.79;25;272.34
+3-ago-21;10:21;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.84;27.6;640;13.55;29;242.79
+3-ago-21;11:42;Lago de Amatitl√°n/Oeste Centro;9.22;26.4;675;14.33;22;227.84
+3-ago-21;12:32;Lago de Amatitl√°n/R√≠o Michatoya ;9.4;26.9;670;14.7;49;342.83
+3-ago-21;12:45;Lago de Amatitl√°n/Playa P√∫blica;9.48;27.9;668;17.72;72;352.44
+7-sep-21;09:56;Lago de Amatitl√°n/Este Centro;9.55;26.6;618;10.47;6;55.89
+7-sep-21;11:08;Lago de Amatitl√°n/Bah√≠a Playa de Oro;9.16;26.9;609;13.61;27;167.32
+7-sep-21;12:10;Lago de Amatitl√°n/Oeste Centro;9.3;27;629;14.09;19;308.65
+7-sep-21;12:54;Lago de Amatitl√°n/R√≠o Michatoya ;9.56;26.3;628;16.62;21;317.55
+7-sep-21;13:04;Lago de Amatitl√°n/Playa P√∫blica;9.64;27.6;621;18.86;22;453.9
+5-oct-21;09:53;Lago de Amatitl√°n/Este Centro;9.69;27;591;14.03;9;157
+5-oct-21;11:10;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.72;26.6;617;8.08;26;170.52
+5-oct-21;11:52;Lago de Amatitl√°n/Oeste Centro;8.94;26.1;623;9.57;19;215.74
+5-oct-21;12:26;Lago de Amatitl√°n/R√≠o Michatoya ;9.07;26;620;10.16;25;247.06
+5-oct-21;12:36;Lago de Amatitl√°n/Playa P√∫blica;9.11;26.3;618;11.27;23;246
+2-nov-21;09:48;Lago de Amatitl√°n/Este Centro;9.21;25.4;599;7.14;9;109.65
+2-nov-21;11:20;Lago de Amatitl√°n/Bah√≠a Playa de Oro;7.79;25.5;632;1.05;26;88.64
+2-nov-21;12:24;Lago de Amatitl√°n/Oeste Centro;7.79;24.9;640;5.07;16;65.86
+2-nov-21;13:14;Lago de Amatitl√°n/R√≠o Michatoya ;7.88;25;640;2.22;16;78.32
+2-nov-21;13:22;Lago de Amatitl√°n/Playa P√∫blica;7.84;25.4;640;2.54;14;72.27
+1-dic-21;10:15;Lago de Amatitl√°n/Este Centro;8.24;23;637;3.06;6;47.35
+1-dic-21;11:15;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.46;22.9;624;7.74;13;177.29
+1-dic-21;12:10;Lago de Amatitl√°n/Oeste Centro;7.78;23.3;666;2.38;10;67.28
+1-dic-21;12:52;Lago de Amatitl√°n/R√≠o Michatoya ;7.81;24.1;670;2.82;6;21.36
+1-dic-21;13:02;Lago de Amatitl√°n/Playa P√∫blica;7.75;26.5;668;1.86;7;30.26
+4/01/2023;-;Lago de Amatitl√°n/Este Centro;9.21;24.58;623.2;12.98;76;318.98
+4/01/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;9.21;23.95;606.9;3.66;33;217.52
+4/01/2023;-;Lago de Amatitl√°n/Oeste Centro;8.52;23.85;615.7;10.65;19;169.81
+4/01/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;8.62;23.9;413;11.67;18;273.76
+4/01/2023;-;Lago de Amatitl√°n/Playa P√∫blica;8.81;24.2;416;14.38;82;585.62
+2/02/2023;-;Lago de Amatitl√°n/Este Centro;8.77;22.7;627.4;10.65;24;134.21
+2/02/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.31;22.38;615.7;6.89;18;100.04
+2/02/2023;-;Lago de Amatitl√°n/Oeste Centro;8.27;23.06;636.8;8.6;14;137.77
+2/02/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;8.31;23.1;420;8.78;14;170.17
+2/02/2023;-;Lago de Amatitl√°n/Playa P√∫blica;8.37;23.4;421;9.16;17;175.86
+2/03/2023;-;Lago de Amatitl√°n/Este Centro;8.83;24.41;634.6;10.15;43;134.21
+2/03/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;9.28;26.39;607.9;21.52;45;100.04
+2/03/2023;-;Lago de Amatitl√°n/Oeste Centro;8.69;25.05;657.5;12.4;23;137.77
+2/03/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;9.1;27.51;656.8;18.82;44;170.17
+2/03/2023;-;Lago de Amatitl√°n/Playa P√∫blica;8.88;25.74;654.8;20.05;32;175.86
+10/04/2023;-;Lago de Amatitl√°n/Este Centro;9.36;24.82;631.7;11.01;32;59.1
+10/04/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.6;25.18;620.3;21.52;27;65.5
+10/04/2023;-;Lago de Amatitl√°n/Oeste Centro;8.13;24.9;669.8;5.6;21;87.58
+10/04/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;8.54;24.53;679.6;8.16;45;156.64
+10/04/2023;-;Lago de Amatitl√°n/Playa P√∫blica;8.54;25.19;676.3;10.35;41;161.98
+2/05/2023;-;Lago de Amatitl√°n/Este Centro;9.31;26.3;637;10.16;11;39.52
+2/05/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.9;27.86;643.4;15.29;56;210.4
+2/05/2023;-;Lago de Amatitl√°n/Oeste Centro;8.99;26.95;688.1;12.05;53;284.8
+2/05/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;9.13;27.45;760.6;14.69;4,900;176006.4
+2/05/2023;-;Lago de Amatitl√°n/Playa P√∫blica;8.6;26.99;690.2;14.3;135;687.79
+7/06/2023;-;Lago de Amatitl√°n/Este Centro;9.95;26.93;608.6;18.2;139;685.66
+7/06/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.3;26.33;623;2.89;40;151.66
+7/06/2023;-;Lago de Amatitl√°n/Oeste Centro;9.33;26.95;671.8;13.99;47;225.7
+7/06/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;9.6;28.38;677.8;21.61;92;187.26
+7/06/2023;-;Lago de Amatitl√°n/Playa P√∫blica;9.48;27.72;670.4;209.9;84;375.22
+10/07/2023;-;Lago de Amatitl√°n/Este Centro;9.63;25.78;582.5;9.97;39;135.28
+10/07/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;7.77;25.89;624.7;0.84;20;72.98
+10/07/2023;-;Lago de Amatitl√°n/Oeste Centro;9;26.21;629.4;7.42;20;94.7
+10/07/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;9.61;27.67;633;19.58;91;573.16
+10/07/2023;-;Lago de Amatitl√°n/Playa P√∫blica;9.45;27.74;632.9;20.04;67;339.27
+1/08/2023;-;Lago de Amatitl√°n/Este Centro;9.49;25.97;594;10.31;16;87.58
+1/08/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.76;25.7;608.4;10.33;27;169.1
+1/08/2023;-;Lago de Amatitl√°n/Oeste Centro;8.64;25.17;617.7;8.42;31;190.82
+1/08/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;8.98;25.87;615;12.03;49;232.47
+1/08/2023;-;Lago de Amatitl√°n/Playa P√∫blica;9.21;26.24;612.1;19.01;63;384.84
+4/09/2023;-;Lago de Amatitl√°n/Este Centro;9.5;26.53;565.5;12.6;13;102.17
+4/09/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.74;26.52;594.2;6.48;29;118.9
+4/09/2023;-;Lago de Amatitl√°n/Oeste Centro;8.73;26.85;599.7;8.88;20;127.8
+4/09/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;9.37;27.58;587.5;19.5;63;407.26
+4/09/2023;-;Lago de Amatitl√°n/Playa P√∫blica;9.21;27.74;632.9;20.04;61;430.76
+2/10/2023;-;Lago de Amatitl√°n/Este Centro;9.39;26.94;553.2;7.43;18;80.1
+2/10/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.8;27.17;594.1;10.03;26;116.77
+2/10/2023;-;Lago de Amatitl√°n/Oeste Centro;8.39;29.86;599.2;4.2;15;48.06
+2/10/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;9.14;26.86;596.2;12.51;27;173.37
+2/10/2023;-;Lago de Amatitl√°n/Playa P√∫blica;8.94;27.04;597.6;13.44;25;173.73
+2/11/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;7.84;24.21;623;1.55;15;53.04
+2/11/2023;-;Lago de Amatitl√°n/Oeste Centro;7.78;24.3;602.5;0.44;8;37.02
+2/11/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;8.02;24.25;592.2;2.87;14;90.42
+2/11/2023;-;Lago de Amatitl√°n/Playa P√∫blica;7.78;24.25;595.8;2.01;10;75.12
+4/12/2023;-;Lago de Amatitl√°n/Este Centro;8.2;24.2;603.3;3.99;10;54.11
+4/12/2023;-;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.52;25.05;614;8.88;22;163.4
+4/12/2023;-;Lago de Amatitl√°n/Oeste Centro;7.56;24.08;621.8;0.7;7;24.21
+4/12/2023;-;Lago de Amatitl√°n/R√≠o Michatoya ;7.73;24.15;619.7;1.31;6;27.06
+4/12/2023;-;Lago de Amatitl√°n/Playa P√∫blica;7.85;24.58;621.4;2.4;7;33.82
+9/01/2024;10:19;Lago de Amatitl√°n/Este Centro;8.62;23.85;609.7;12.28;14;80.81
+9/01/2024;11:15;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.56;25.31;610.3;16.67;181;165.9
+9/01/2024;12:20;Lago de Amatitl√°n/Oeste Centro;8.07;25.18;677;5.55;28;28.3
+9/01/2024;13:06;Lago de Amatitl√°n/R√≠o Michatoya ;7.7;24.88;651.4;2.21;6;16.38
+9/01/2024;13:16;Lago de Amatitl√°n/Playa P√∫blica;7.8;24.58;653.8;2.51;5;13.53
+5/02/2024;09:25;Lago de Amatitl√°n/Este Centro;8.52;23.07;609.8;6.83;9;18.87
+5/02/2024;10:30;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.82;24.46;633.9;14.1;33;34.89
+5/02/2024;11:51;Lago de Amatitl√°n/Oeste Centro;8.03;24.21;675.8;3.7;7;18.51
+5/02/2024;12:29;Lago de Amatitl√°n/R√≠o Michatoya ;7.91;23.2;678.9;2.36;5;12.64
+5/02/2024;12:36;Lago de Amatitl√°n/Playa P√∫blica;7.79;23.2;682.9;1.6;6;12.82
+4/03/2024;09:48;Lago de Amatitl√°n/Este Centro;9.42;25.13;602.5;16.24;191;58.21
+4/03/2024;10:55;Lago de Amatitl√°n/Bah√≠a Playa de Oro;9.21;27.78;613.3;23.08;53;64.08
+4/03/2024;12:04;Lago de Amatitl√°n/Oeste Centro;8.15;24.21;675.8;3.7;6;19.94
+4/03/2024;12:29;Lago de Amatitl√°n/R√≠o Michatoya ;7.91;23.2;678.9;2.36;137;35.07
+4/03/2024;12:36;Lago de Amatitl√°n/Playa P√∫blica;7.79;23.2;682.9;1.6;12;33.82
+2/04/2024;09:45;Lago de Amatitl√°n/Este Centro;9.4;25.84;610.6;12.08;40;105.73
+2/04/2024;10:53;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.79;26.68;630;10.94;370;112.85
+2/04/2024;12:20;Lago de Amatitl√°n/Oeste Centro;8.4;26.29;706.3;5.01;51;64.79
+2/04/2024;12:49;Lago de Amatitl√°n/R√≠o Michatoya ;7.83;27.48;710.8;5.01;40;100.75
+2/04/2024;12:59;Lago de Amatitl√°n/Playa P√∫blica;8.48;26.45;705.6;4.89;66;200.25
+6/05/2024;09:45;Lago de Amatitl√°n/Este Centro;9.547;27.7;618;13.17;27;44.5
+6/05/2024;10:44;Lago de Amatitl√°n/Bah√≠a Playa de Oro;9.418;27.9;606;14.43;115;100.93
+6/05/2024;11:53;Lago de Amatitl√°n/Oeste Centro;9.345;28.5;707;17.35;41;99.32
+6/05/2024;12:40;Lago de Amatitl√°n/R√≠o Michatoya ;9.523;28.9;703;18.34;368;1195
+6/05/2024;12:55;Lago de Amatitl√°n/Playa P√∫blica;9.498;29;704;18.95;254;312.92
+3/06/2024;09:41;Lago de Amatitl√°n/Este Centro;9.284;27.4;627;7.17;19;30.62
+3/06/2024;10:38;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.769;27.7;633;7.06;115;74.05
+3/06/2024;12:09;Lago de Amatitl√°n/Oeste Centro;9.371;28.7;721;18.35;55;182.98
+3/06/2024;12:55;Lago de Amatitl√°n/R√≠o Michatoya ;9.015;28.4;730;11.19;64;98.26
+3/06/2024;13:11;Lago de Amatitl√°n/Playa P√∫blica;9.059;27.9;731;11.88;33;71.91
+4/07/2024;09:51;Lago de Amatitl√°n/Este Centro;9.271;25.4;602;8.82;25;38.8
+4/07/2024;10:51;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.163;25;629;1.14;41;73.34
+4/07/2024;12:15;Lago de Amatitl√°n/Oeste Centro;8.107;25.2;668;2.85;16;29.19
+4/07/2024;13:00;Lago de Amatitl√°n/R√≠o Michatoya ;8.555;25.6;669;8.24;29;63.01
+4/07/2024;13:10;Lago de Amatitl√°n/Playa P√∫blica;8.58;25.1;670;8.01;30;68.71
+6/08/2024;10:21;Lago de Amatitl√°n/Este Centro;9.429;25.8;585;11.9;20;34.53
+6/08/2024;11:12;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.901;26;616;9.17;33;59.33
+6/08/2024;12:35;Lago de Amatitl√°n/Oeste Centro;8.692;25.8;624;8.14;21;76.89
+6/08/2024;13:18;Lago de Amatitl√°n/R√≠o Michatoya ;9.274;26.4;613;8.9;37;102.73
+6/08/2024;13:25;Lago de Amatitl√°n/Playa P√∫blica;9.541;27.7;608;17.97;40;109.88
+2/09/2024;10:27;Lago de Amatitl√°n/Este Centro;9.688;27.1;572;15.02;30;41.47
+2/09/2024;11:10;Lago de Amatitl√°n/Bah√≠a Playa de Oro;9.063;28.5;614;15.26;27;40.58
+2/09/2024;12:31;Lago de Amatitl√°n/Oeste Centro;9.301;29.3;617;16.1;42;118.88
+2/09/2024;13:17;Lago de Amatitl√°n/R√≠o Michatoya ;9.346;27.7;618;13.5;294;455.08
+2/09/2024;13:27;Lago de Amatitl√°n/Playa P√∫blica;9.336;27.7;622;13.89;95;136.76
+1/10/2024;09:53;Lago de Amatitl√°n/Este Centro;9.4;25.4;566.8;8.19;11;37.02
+1/10/2024;11:00;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.64;26.57;607.7;11.73;44;108.23
+1/10/2024;12:31;Lago de Amatitl√°n/Oeste Centro;9.301;29.3;617;16.1;14;40.46
+1/10/2024;13:15;Lago de Amatitl√°n/R√≠o Michatoya ;7.73;24.49;606.4;0;8;35.36
+1/10/2024;13:27;Lago de Amatitl√°n/Playa P√∫blica;7.99;25.44;603.8;3.65;9;14
+5/11/2024;10:36;Lago de Amatitl√°n/Este Centro;8.61;26.14;604.2;5.24;32;40.11
+5/11/2024;11:38;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.72;28.16;612.8;18.89;26;85.78
+5/11/2024;13:00;Lago de Amatitl√°n/Oeste Centro;8.49;26.53;588.9;10.58;14;59.93
+5/11/2024;13:41;Lago de Amatitl√°n/R√≠o Michatoya ;8.38;26.03;586.8;8.44;16;78.55
+5/11/2024;13:47;Lago de Amatitl√°n/Playa P√∫blica;8.4;26.64;587.8;12.52;17;85.56
+2/12/2024;10:13;Lago de Amatitl√°n/Este Centro;7.88;23.31;611.8;1.66;11;18.39
+2/12/2024;11:40;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8;22.92;626;3;11;12
+2/12/2024;13:01;Lago de Amatitl√°n/Oeste Centro;7.37;21.44;415.9;0.17;9;20.17
+2/12/2024;13:46;Lago de Amatitl√°n/R√≠o Michatoya ;7.71;23.25;603.7;2.27;9;33.7
+2/12/2024;13:59;Lago de Amatitl√°n/Playa P√∫blica;7.7;23.27;606.2;2.07;8;34.53
+7/01/2025;09:48;Lago de Amatitl√°n/Este Centro;8.19;22.6;610.6;6.95;8;32.04
+7/01/2025;11:12;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.34;22.95;620.3;7;16;31.57
+7/01/2025;13:10;Lago de Amatitl√°n/Oeste Centro;7.62;22.36;632.7;1.59;8;17.45
+7/01/2025;14:07;Lago de Amatitl√°n/R√≠o Michatoya ;7.78;22.59;627.6;3.29;11;29.19
+7/01/2025;14:12;Lago de Amatitl√°n/Playa P√∫blica;7.77;22.56;628.6;2.67;10;28.95
+4/02/2025;10:03;Lago de Amatitl√°n/Este Centro;8.32;22.3;608.6;7.27;11;14.71
+4/02/2025;11:27;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.47;22.91;622.3;6.87;23;41.88
+4/02/2025;12:58;Lago de Amatitl√°n/Oeste Centro;7.87;22.54;647.9;4.06;16;45.21
+4/02/2025;13:55;Lago de Amatitl√°n/R√≠o Michatoya ;8.15;22.56;642.6;6.56;13;44.5
+4/02/2025;14:02;Lago de Amatitl√°n/Playa P√∫blica;8.37;23.24;642.6;9.39;15;49.36
+6/03/2025;10:07;Lago de Amatitl√°n/Este Centro;9.21;23.78;603.6;11.84;24;18.39
+6/03/2025;11:20;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.73;25;621.3;8.64;31;26.1
+6/03/2025;12:43;Lago de Amatitl√°n/Oeste Centro;9.13;24.38;672;12.19;21;48.53
+6/03/2025;13:31;Lago de Amatitl√°n/R√≠o Michatoya ;9.37;24.84;669;16.32;122;118.66
+6/03/2025;13:40;Lago de Amatitl√°n/Playa P√∫blica;9.05;24.61;657.2;13.41;34;40.23
+1/04/2025;09:50;Lago de Amatitl√°n/Este Centro;9.69;25.62;603.1;13.53;32;15.55
+1/04/2025;10:55;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.68;27.5;647.9;5.17;75;105.02
+1/04/2025;12:23;Lago de Amatitl√°n/Oeste Centro;9.3;26.37;682.7;16.23;34;61.23
+1/04/2025;13:24;Lago de Amatitl√°n/R√≠o Michatoya ;8.71;25.6;691;14.85;621;281.59
+1/04/2025;13:34;Lago de Amatitl√°n/Playa P√∫blica;9.13;26.42;682;16.34;65;112.58
+5/05/2025;10:13;Lago de Amatitl√°n/Este Centro;9.46;26.35;611.9;9.99;9;38.8
+5/05/2025;11:46;Lago de Amatitl√°n/Bah√≠a Playa de Oro;9.01;28.04;316.4;11.28;56;98.1
+5/05/2025;13:21;Lago de Amatitl√°n/Oeste Centro;9.43;28.13;374;17;80;36.07
+5/05/2025;14:13;Lago de Amatitl√°n/R√≠o Michatoya ;9.4;28.07;273.5;14.61;71;122.9
+5/05/2025;14:18;Lago de Amatitl√°n/Playa P√∫blica;9.48;29.02;272.4;16.51;96;74.58
+3/06/2025;09:54;Lago de Amatitl√°n/Este Centro;9.6;26.59;229;15.88;28;87.57
+3/06/2025;11:04;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.21;27.99;236.9;0;96;97.9
+3/06/2025;12:30;Lago de Amatitl√°n/Oeste Centro;9.43;28.72;239.7;18.78;21;22.31
+3/06/2025;13:20;Lago de Amatitl√°n/R√≠o Michatoya ;9.69;28.57;229;22.05;1,950;291.62
+3/06/2025;13:38;Lago de Amatitl√°n/Playa P√∫blica;10.02;28.78;230.5;25.35;79;53.4
+2/07/2025;09:53;Lago de Amatitl√°n/Este Centro;9.69;26.93;237.2;11.68;33;62.42
+2/07/2025;10:56;Lago de Amatitl√°n/Bah√≠a Playa de Oro;8.44;26.02;284;7.05;33;99.92
+2/07/2025;12:16;Lago de Amatitl√°n/Oeste Centro;9.25;26.57;273.3;6.64;9;32.04
+2/07/2025;13:07;Lago de Amatitl√°n/R√≠o Michatoya ;9.45;27.12;357.6;13.54;50;63.72
+2/07/2025;13:13;Lago de Amatitl√°n/Playa P√∫blica;8.57;26.79;386.2;12.57;30;46.99
+5/08/2025;10:10;Lago de Amatitl√°n/Este Centro;9.495;25.6;569;10.73;33;35.84
+5/08/2025;11:09;Lago de Amatitl√°n/Bah√≠a Playa de Oro;7.988;25;677;1.47;33;44.38
+5/08/2025;12:20;Lago de Amatitl√°n/Oeste Centro;8.2;25.1;676;1.72;9;11.27
+5/08/2025;13:16;Lago de Amatitl√°n/R√≠o Michatoya ;8.354;25.4;674;2.33;50;4.15
+5/08/2025;13:25;Lago de Amatitl√°n/Playa P√∫blica;8.32;25.6;676;2.19;30;7
+
