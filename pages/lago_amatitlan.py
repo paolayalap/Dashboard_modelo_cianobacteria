@@ -34,7 +34,7 @@ except Exception:
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
-st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Luego se muestran matrices difusas para SVM y KNN. Finalmente, puedes evaluar con `dataframe.csv` del estanque.")
+st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Luego se muestran matrices difusas para SVM y KNN. Finalmente, puedes evaluar con `dataframe1.csv` del estanque.")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
@@ -142,10 +142,10 @@ DEFAULT_EPS = (0.3, 1.0, 5.0)
 
 def fuzzy_memberships_scalar(x, eps=DEFAULT_EPS):
     e1, e2, e3 = eps
-    m0 = _trapezoid(x, 0.0, 0.0, 2.0 - e1, 2.0 + e1)           # 0–2
-    m1 = _trapezoid(x, 2.0 - e1, 2.0 + e1, 7.0 - e2, 7.0 + e2) # 2–7
+    m0 = _trapezoid(x, 0.0, 0.0, 2.0 - e1, 2.0 + e1)             # 0–2
+    m1 = _trapezoid(x, 2.0 - e1, 2.0 + e1, 7.0 - e2, 7.0 + e2)   # 2–7
     m2 = _trapezoid(x, 7.0 - e2, 7.0 + e2, 40.0 - e3, 40.0 + e3) # 7–40
-    m3 = _right_shoulder(x, 40.0 - e3, 40.0 + e3)               # ≥40
+    m3 = _right_shoulder(x, 40.0 - e3, 40.0 + e3)                # ≥40
     v = np.array([m0, m1, m2, m3], dtype=float)
     s = v.sum()
     return v / s if s > 0 else v
@@ -362,12 +362,14 @@ st.subheader("🧪 Predicción y matrices (difusas) con datos del estanque")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
+    # Ruta por defecto al estanque
     DEFAULT_POND = DEFAULT_DIR_POND / "dataframe1.csv"
-pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
-pond_path = Path(pond_path_input)
+    pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
+    pond_path = Path(pond_path_input)
+
     if not pond_path.exists():
-        st.warning("No encuentro **dataframe.csv** en el directorio actual. Sube el archivo:")
-        up2 = st.file_uploader("Sube dataframe.csv", type=["csv"], key="pond")
+        st.warning("No encuentro **dataframe1.csv** en la ruta indicada. Sube el archivo:")
+        up2 = st.file_uploader("Sube dataframe1.csv", type=["csv"], key="pond")
         if up2 is None:
             st.stop()
         df_pond = read_csv_robust(up2)
@@ -431,7 +433,7 @@ pond_path = Path(pond_path_input)
         st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_p, LABELS, "Matriz **difusa** — KNN (Estanque)"), use_container_width=True)
         st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
 
-    if used_proxy:
+    if not have_true:
         st.caption("ℹ️ En el estanque se usó **proxy** de verdad de clorofila para la matriz difusa (no había columna de clorofila real).")
 
     st.success("Listo. Matrices del estanque generadas.")
