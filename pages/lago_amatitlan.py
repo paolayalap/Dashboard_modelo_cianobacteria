@@ -405,10 +405,13 @@ user_note2 = st.text_area("✍️ Puedes editar esta explicación de las matrice
 st.subheader("🧪 Predicción y matrices (difusas) con datos del estanque")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
-if clicked:
-    DEFAULT_POND = DEFAULT_DIR_POND / "dataframe1.csv"
-    pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
-    pond_path = Path(pond_path_input)
+if KERAS_OK and 'TRAIN_MODEL' in globals() and 'TRAIN_SCALER' in globals():
+    Xp_s = TRAIN_SCALER.transform(Xp)
+    y_pred_t = TRAIN_MODEL.predict(Xp_s, verbose=0).ravel()
+    # Des-transforma si entrenamos en log1p:
+    y_proxy = np.expm1(y_pred_t) if globals().get("TRAIN_Y_LOG1P", False) else y_pred_t
+    y_true_p = np.clip(y_proxy, 0.0, None)
+    used_proxy = True
 
     if not pond_path.exists():
         st.warning("No encuentro **dataframe1.csv** en la ruta indicada. Sube el archivo:")
