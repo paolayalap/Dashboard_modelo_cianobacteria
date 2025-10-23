@@ -55,10 +55,13 @@ _def_map = {
     "temperatura (c)": "Temperatura (°C)",
     "temp (°c)": "Temperatura (°C)",
     "temp": "Temperatura (°C)",
+
     "conductividad (us/cm)": "Conductividad (μS/cm)",
     "conductividad(us/cm)": "Conductividad (μS/cm)",
     "conductividad (s/cm)": "Conductividad (μS/cm)",
     "conductividad": "Conductividad (μS/cm)",
+
+    # Variantes de OD en mg/L
     "do (mg/l)": "Oxígeno Disuelto (mg/L)",
     "od (mg/l)": "Oxígeno Disuelto (mg/L)",
     "do mg/l": "Oxígeno Disuelto (mg/L)",
@@ -67,15 +70,16 @@ _def_map = {
     "dissolved oxygen (mg/l)": "Oxígeno Disuelto (mg/L)",
     "oxygen dissolved (mg/l)": "Oxígeno Disuelto (mg/L)",
     "oxigeno disuelto (mgl)": "Oxígeno Disuelto (mg/L)",
+
     "turbidez (ntu)": "Turbidez (NTU)",
     "turbiedad (ntu)": "Turbidez (NTU)",
     "turbiedad": "Turbidez (NTU)",
     "turbidez": "Turbidez (NTU)",
+
     "clorofila (ug/l)": TARGET,
     "clorofila (μg/l)": TARGET,
     "clorofila": TARGET,
 }
-
 
 def _canon(s: str) -> str:
     s = str(s)
@@ -112,11 +116,10 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             ren[c] = "Turbidez (NTU)"
             continue
 
-        # Oxígeno disuelto (muchas variantes):
-        # ejemplos: "oxígeno disuelto", "oxigeno disuelto", "o2 disuelto", "do", "od",
-        #           "dissolved oxygen", "oxygen dissolved", con mg/l o mg/L
+        # Oxígeno disuelto (muchas variantes)
         if (
-            ("oxigeno" in k or "oxígeno" in k or "dissolved oxygen" in k or "oxygen dissolved" in k or re.search(r"\bdo\b", k) or re.search(r"\bod\b", k) or "o2" in k)
+            ("oxigeno" in k or "oxígeno" in k or "dissolved oxygen" in k or "oxygen dissolved" in k
+             or re.search(r"\bdo\b", k) or re.search(r"\bod\b", k) or "o2" in k)
             and ("mg/l" in k or "mg l" in k or "mg" in k)  # tolerante a mg/l o mg l
         ):
             ren[c] = "Oxígeno Disuelto (mg/L)"
@@ -134,7 +137,6 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     out = df.rename(columns=ren)
     out.columns = [col.replace("(mg/l)", "(mg/L)") for col in out.columns]
     return out
-
 
 # Lectura robusta de CSV
 ENCODINGS = ["utf-8", "utf-8-sig", "latin1", "cp1252"]
@@ -154,7 +156,6 @@ def read_csv_robust(path_or_buffer) -> pd.DataFrame:
         raise e
 
 # Fuzzy helpers
-
 def _trapezoid(x, a, b, c, d):
     x = float(x)
     if x <= a or x >= d:
@@ -220,7 +221,6 @@ def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.2f}"):
     return fig
 
 # Reordenar predict_proba al orden deseado
-
 def align_proba_to_labels(proba: np.ndarray, classes_pred, labels_order):
     classes_pred = list(classes_pred) if classes_pred is not None else []
     idx_map = {c: i for i, c in enumerate(classes_pred)}
@@ -258,6 +258,39 @@ else:
 
 # Normaliza encabezados comunes
 df_amsa = normalize_columns(df_amsa)
+
+# === Parche asistido para Oxígeno Disuelto ===
+st.caption("Encabezados del AMSA (tras normalización):")
+st.write(list(df_amsa.columns))
+
+def _candidatas_oxigeno(cols):
+    cands = []
+    for col in cols:
+        kc = _canon(col)
+        # tokens comunes: oxigeno/oxígeno/oxygen/do/od/o2 (con o sin unidades)
+        if (
+            "oxigeno" in kc or "oxígeno" in kc or "oxygen" in kc
+            or "dissolved oxygen" in kc or "oxygen dissolved" in kc
+            or re.search(r"\bdo\b", kc) or re.search(r"\bod\b", kc) or "o2" in kc
+        ):
+            cands.append(col)
+    return cands
+
+if "Oxígeno Disuelto (mg/L)" not in df_amsa.columns:
+    cands = _candidatas_oxigeno(df_amsa.columns)
+    if cands:
+        st.warning("No se detectó automáticamente 'Oxígeno Disuelto (mg/L)'. Selecciona la columna correcta:")
+        choice = st.selectbox("Columna que representa Oxígeno Disuelto (mg/L)", cands, index=0, key="ox_sel")
+        if choice:
+            df_amsa = df_amsa.rename(columns={choice: "Oxígeno Disuelto (mg/L)"})
+    else:
+        st.error(
+            "No encuentro ninguna columna candidata para Oxígeno Disuelto. "
+            "Revisa el nombre en tu archivo o escríbelo tal cual abajo."
+        )
+        manual = st.text_input("Nombre EXACTO de la columna de Oxígeno Disuelto en tu CSV", value="")
+        if manual and manual in df_amsa.columns:
+            df_amsa = df_amsa.rename(columns={manual: "Oxígeno Disuelto (mg/L)"})
 
 # Mostrar tabla estática (primeros 10) y expander para todo
 st.markdown("**Vista previa (10 primeras filas):**")
