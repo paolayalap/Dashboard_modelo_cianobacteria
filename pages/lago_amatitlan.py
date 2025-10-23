@@ -499,4 +499,51 @@ if clicked:
         st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz difusa (no había columna de clorofila real).")
 
     st.success("Listo. Matrices del estanque generadas.")
+    # ========= Predicciones continuas para exportar =========
+    # Intentamos usar la NN de regresión entrenada (sección 2).
+    # Si no existe, usamos una estimación por SVM (valor esperado con centroides).
+    tm  = globals().get("TRAIN_MODEL", None)
+    ts  = globals().get("TRAIN_SCALER", None)
+    ylg = globals().get("TRAIN_Y_LOG1P", False)
+
+    if KERAS_OK and (tm is not None) and (ts is not None):
+        Xp_s = ts.transform(Xp)
+        yhat_t = tm.predict(Xp_s, verbose=0).ravel()
+        yhat   = np.expm1(yhat_t) if ylg else yhat_t
+    else:
+        # Esperanza de clorofila a partir de probabilidades SVM y centroides de cada rango
+        centers = np.array([1.0, 4.5, 20.0, 60.0])
+        yhat = proba_svm_p_al @ centers
+
+    yhat = np.clip(yhat, 0.0, None)
+
+    # DataFrame a exportar
+    df_pred_export = df_pond.copy()
+    df_pred_export["Clorofila_predicha (μg/L)"] = yhat
+
+    # ========= Botones inferiores: Volver (izq) / Descargar CSV (der) =========
+    bot_left, bot_right = st.columns(2)
+    with bot_left:
+        # OPCIÓN A (multi-página nativa de Streamlit 1.27+):
+        volver = st.button("⬅️ Volver", use_container_width=True)
+        if volver:
+            # Cambia el path a tu página principal (Home) según tu estructura:
+            #   - si está en /pages/Menu.py:  st.switch_page("pages/Menu.py")
+            #   - si es el script principal:  st.switch_page("Home.py")
+            st.switch_page("Home.py")
+
+        # OPCIÓN B (si NO usas multi-página nativa):
+        # Usa un flag de session_state para volver a tu “menú” propio.
+        # if st.button("⬅️ Volver", use_container_width=True):
+        #     st.session_state["page"] = "menu"  # tu lógica de navegación
+        #     st.experimental_rerun()
+
+    with bot_right:
+        st.download_button(
+            "⬇️ Descargar predicciones (.csv)",
+            data=df_pred_export.to_csv(index=False).encode("utf-8"),
+            file_name="predicciones_estanque.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
 
