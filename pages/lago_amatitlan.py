@@ -59,10 +59,14 @@ _def_map = {
     "conductividad(us/cm)": "Conductividad (μS/cm)",
     "conductividad (s/cm)": "Conductividad (μS/cm)",
     "conductividad": "Conductividad (μS/cm)",
-    "oxigeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
-    "oxígeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
-    "oxigeno disuelto": "Oxígeno Disuelto (mg/L)",
     "do (mg/l)": "Oxígeno Disuelto (mg/L)",
+    "od (mg/l)": "Oxígeno Disuelto (mg/L)",
+    "do mg/l": "Oxígeno Disuelto (mg/L)",
+    "od mg/l": "Oxígeno Disuelto (mg/L)",
+    "o2 disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
+    "dissolved oxygen (mg/l)": "Oxígeno Disuelto (mg/L)",
+    "oxygen dissolved (mg/l)": "Oxígeno Disuelto (mg/L)",
+    "oxigeno disuelto (mgl)": "Oxígeno Disuelto (mg/L)",
     "turbidez (ntu)": "Turbidez (NTU)",
     "turbiedad (ntu)": "Turbidez (NTU)",
     "turbiedad": "Turbidez (NTU)",
@@ -71,6 +75,7 @@ _def_map = {
     "clorofila (μg/l)": TARGET,
     "clorofila": TARGET,
 }
+
 
 def _canon(s: str) -> str:
     s = str(s)
