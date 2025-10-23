@@ -85,18 +85,51 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     ren = {}
     for c in df.columns:
         k = _canon(c)
+
+        # --- match directos conocidos ---
         if k in _def_map:
             ren[c] = _def_map[k]
             continue
-        if "conductividad" in k and ("us/cm" in k or "s/cm" in k):
+
+        # --- reglas heurísticas por patrón ---
+        # Conductividad
+        if "conductividad" in k and ("us/cm" in k or "µs/cm" in k or "uscm" in k or "s/cm" in k):
             ren[c] = "Conductividad (μS/cm)"
-        elif ("oxigeno" in k or "oxígeno" in k) and "mg/l" in k:
-            ren[c] = "Oxígeno Disuelto (mg/L)"
-        elif "temperatura" in k or k.startswith("temp"):
+            continue
+
+        # Temperatura
+        if "temperatura" in k or k.startswith("temp"):
             ren[c] = "Temperatura (°C)"
-        else:
-            ren[c] = c
-    return df.rename(columns=ren)
+            continue
+
+        # Turbidez
+        if "turbidez" in k or "turbiedad" in k or "ntu" in k:
+            ren[c] = "Turbidez (NTU)"
+            continue
+
+        # Oxígeno disuelto (muchas variantes):
+        # ejemplos: "oxígeno disuelto", "oxigeno disuelto", "o2 disuelto", "do", "od",
+        #           "dissolved oxygen", "oxygen dissolved", con mg/l o mg/L
+        if (
+            ("oxigeno" in k or "oxígeno" in k or "dissolved oxygen" in k or "oxygen dissolved" in k or re.search(r"\bdo\b", k) or re.search(r"\bod\b", k) or "o2" in k)
+            and ("mg/l" in k or "mg l" in k or "mg" in k)  # tolerante a mg/l o mg l
+        ):
+            ren[c] = "Oxígeno Disuelto (mg/L)"
+            continue
+
+        # Clorofila
+        if "clorofila" in k or "chlorophyll" in k:
+            ren[c] = "Clorofila (μg/L)"
+            continue
+
+        # Si nada calza, deja el original
+        ren[c] = c
+
+    # Normaliza units mg/l -> mg/L visualmente (internamente nos da igual)
+    out = df.rename(columns=ren)
+    out.columns = [col.replace("(mg/l)", "(mg/L)") for col in out.columns]
+    return out
+
 
 # Lectura robusta de CSV
 ENCODINGS = ["utf-8", "utf-8-sig", "latin1", "cp1252"]
