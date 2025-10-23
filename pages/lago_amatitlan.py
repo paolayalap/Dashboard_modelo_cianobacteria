@@ -1,12 +1,6 @@
 # ============================================
 # Streamlit: Visualización AMSA + Entrenamiento + Fuzzy Confusion (SVM/KNN)
-# Incluye:
-#  - Tabla estática (top 10) + expander "ver todo"
-#  - Curva de entrenamiento (izq) + nota editable (der)
-#  - Matrices de confusión difusas (SVM y KNN) + nota editable
-#  - Botón: "Predecir con datos del estanque" -> matrices difusas con dataframe1.csv
-#  - Parche: detección flexible de "Oxígeno Disuelto (mg/L)" (may/min, tildes, sinónimos)
-# Ejecuta:  streamlit run streamlit_app_amsa.py
+# Sin prompts de "Oxígeno Disuelto": auto-detección/renombrado silencioso
 # ============================================
 
 import os, io, re, unicodedata
@@ -89,11 +83,16 @@ _def_map = {
     "clorofila": TARGET,
 }
 
+def _strip_accents(text: str) -> str:
+    """Elimina diacríticos (tildes) para comparar de forma robusta."""
+    return ''.join(ch for ch in unicodedata.normalize('NFD', text) if not unicodedata.combining(ch))
+
 def _canon(s: str) -> str:
     s = str(s)
     s = unicodedata.normalize("NFKD", s)
     s = s.replace("µ", "u").replace("μ", "u")
     s = "".join(ch for ch in s if ch.isprintable())
+    s = _strip_accents(s)            # <— quitamos tildes
     s = s.lower().strip()
     s = re.sub(r"\s+", " ", s)
     return s
@@ -106,13 +105,13 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         if k in _def_map:
             ren[c] = _def_map[k]; continue
         # 2) reglas heurísticas
-        if "conductividad" in k and ("us/cm" in k or "µs/cm" in k or "uscm" in k or "s/cm" in k):
+        if "conductividad" in k and ("us/cm" in k or "uscm" in k or "s/cm" in k):
             ren[c] = "Conductividad (μS/cm)"; continue
         if "temperatura" in k or k.startswith("temp"):
             ren[c] = "Temperatura (°C)"; continue
         if "turbidez" in k or "turbiedad" in k or "ntu" in k:
             ren[c] = "Turbidez (NTU)"; continue
-        if (("oxigeno" in k or "oxígeno" in k or "oxygen" in k or "dissolved oxygen" in k or "oxygen dissolved" in k
+        if (("oxigeno" in k or "oxygen" in k or "dissolved oxygen" in k
              or re.search(r"\bdo\b", k) or re.search(r"\bod\b", k) or "o2" in k)
             and ("mg/l" in k or "mg l" in k or "mg" in k)):
             ren[c] = "Oxígeno Disuelto (mg/L)"; continue
@@ -138,10 +137,8 @@ def to_numeric_smart(s: pd.Series) -> pd.Series:
     def fix(x: str) -> str:
         x = x.replace(" ", "")
         if "," in x and "." in x:
-            # asume coma de miles, punto decimal: 1,234.56 -> 1234.56
             x = x.replace(",", "")
         elif "," in x and "." not in x:
-            # asume coma decimal: 1234,56 -> 1234.56
             x = x.replace(",", ".")
         return x
     s = s.apply(fix)
@@ -152,8 +149,8 @@ def _trapezoid(x, a, b, c, d):
     x = float(x)
     if x <= a or x >= d: return 0.0
     if b <= x <= c: return 1.0
-    if a < x < b: return 1.0 if b == a else (x - a) / (b - a)
-    if c < x < d: return 1.0 if d == c else (d - x) / (d - c)
+    if a < x < b: return (x - a) / (b - a) if b > a else 1.0
+    if c < x < d: return (d - x) / (d - c) if d > c else 1.0
     return 0.0
 
 def _right_shoulder(x, a, b):
@@ -236,34 +233,21 @@ else:
 # Normaliza encabezados
 df_amsa = normalize_columns(df_amsa)
 
-# === Parche asistido para Oxígeno Disuelto ===
-st.caption("Encabezados del AMSA (tras normalización):")
-st.json(list(df_amsa.columns))
-
-def _candidatas_oxigeno(cols):
-    cands = []
-    for col in cols:
-        kc = _canon(col)
-        if ("oxigeno" in kc or "oxígeno" in kc or "oxygen" in kc
-            or "dissolved oxygen" in kc or "oxygen dissolved" in kc
-            or re.search(r"\bdo\b", kc) or re.search(r"\bod\b", kc) or "o2" in kc):
-            cands.append(col)
-    return cands
-
+# Renombrado **silencioso** de Oxígeno Disuelto si falta el nombre canónico
 if "Oxígeno Disuelto (mg/L)" not in df_amsa.columns:
-    cands = _candidatas_oxigeno(df_amsa.columns)
+    # Buscar cualquier columna que parezca oxígeno disuelto (robusto a tildes/mayúsculas)
+    cands = []
+    for col in df_amsa.columns:
+        kc = _canon(col)
+        if (("oxigeno" in kc or "oxygen" in kc or "dissolved oxygen" in kc
+             or re.search(r"\bdo\b", kc) or re.search(r"\bod\b", kc) or "o2" in kc)
+            and ("mg/l" in kc or "mg l" in kc or "mg" in kc)):
+            cands.append(col)
     if cands:
-        st.warning("No se detectó automáticamente 'Oxígeno Disuelto (mg/L)'. Selecciona la columna correcta:")
-        choice = st.selectbox("Columna que representa Oxígeno Disuelto (mg/L)", cands, index=0, key="ox_sel")
-        if choice:
-            df_amsa.rename(columns={choice: "Oxígeno Disuelto (mg/L)"}, inplace=True)
-    else:
-        st.error("No encuentro ninguna columna candidata para Oxígeno Disuelto. Escribe el nombre exacto si la ves en la tabla de abajo.")
-        manual = st.text_input("Nombre EXACTO de la columna de Oxígeno Disuelto en tu CSV", value="")
-        if manual and manual in df_amsa.columns:
-            df_amsa.rename(columns={manual: "Oxígeno Disuelto (mg/L)"}, inplace=True)
+        df_amsa.rename(columns={cands[0]: "Oxígeno Disuelto (mg/L)"}, inplace=True)
+    # Si no hay candidatas, no molestamos al usuario: se verá el error solo en la validación final.
 
-# Mostrar tabla estática (primeros 10) y expander para todo
+# Vista previa (10 filas) + expander
 st.markdown("**Vista previa (10 primeras filas):**")
 st.table(df_amsa.head(10))
 with st.expander("⬇️ Ver todos los datos AMSA"):
@@ -274,7 +258,7 @@ for c in REQ_FEATURES + [TARGET]:
     if c in df_amsa.columns:
         df_amsa[c] = to_numeric_smart(df_amsa[c])
 
-# Validación de columnas
+# Validación de columnas (si falta algo, mostramos el error normal aquí)
 faltantes = [c for c in REQ_FEATURES + [TARGET] if c not in df_amsa.columns]
 if faltantes:
     st.error(f"Faltan columnas requeridas en AMSA: {faltantes}. Renombra tus columnas o ajusta el mapa en el script.")
