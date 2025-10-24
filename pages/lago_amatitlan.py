@@ -33,34 +33,50 @@ TRAIN_SCALER = None
 TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
 
-# --------------------- Navegar ------------------
-def volver_menu():
-    """
-    Intenta volver al 'menú principal' en apps multipágina.
-    Si no encuentra la página destino, usa un fallback con session_state.
-    """
-    # 🔁 Ajusta esta lista a los nombres reales de tu menú principal:
-    candidatos = [
-        "Home.py",                 # script raíz
-        "Inicio.py",
-        "Menu.py",
-        "main.py",
-        "streamlit_app.py",
-        "streamlit_app_amsa.py",
-        "pages/Home.py",           # si tu home está dentro de /pages
-        "pages/Menu.py",
-    ]
+# ---------- Navegación robusta a "Home/Inicio/Menu" ----------
+from pathlib import Path
 
-    for destino in candidatos:
-        try:
-            st.switch_page(destino)
-            return
-        except Exception:
-            pass  # probamos el siguiente
+def _canon_nav(s: str) -> str:
+    import unicodedata, re
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    return s
 
-    # 🧭 Fallback para apps de una sola página con menú propio:
-    st.session_state["page"] = "menu"   # <- pon aquí la clave que usa tu menú
-    st.experimental_rerun()
+def volver_menu_auto():
+    """
+    Detecta las páginas disponibles y navega a la que parece 'Home/Inicio/Menu'.
+    Requiere Streamlit >= 1.27 (st.switch_page) y funciona en apps multipágina.
+    """
+    try:
+        # Disponible en Streamlit 1.27+
+        from streamlit.source_util import get_pages
+        pages = get_pages("")  # dict {hash: {"page_name","icon","script_path"}}
+        if not pages:
+            raise RuntimeError("No se detectan páginas multipágina.")
+        # 1) Busca por nombre visible
+        candidatos = ("home", "inicio", "menu", "principal")
+        for _, p in pages.items():
+            name = _canon_nav(p["page_name"])
+            if any(k in name for k in candidatos):
+                return st.switch_page(p["script_path"])
+        # 2) Busca por nombre de archivo (por si el visible no coincide)
+        for _, p in pages.items():
+            stem = _canon_nav(Path(p["script_path"]).stem)
+            if any(k in stem for k in candidatos):
+                return st.switch_page(p["script_path"])
+        # 3) Como último recurso, ve a la primera página distinta de la actual
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        cur_hash = get_script_run_ctx().page_script_hash
+        for h, p in pages.items():
+            if h != cur_hash:
+                return st.switch_page(p["script_path"])
+    except Exception:
+        # Fallback para apps de una sola página con menú propio (session_state)
+        st.session_state["page"] = "menu"
+        st.experimental_rerun()
+
 
 
 # ------------------------- Config UI -------------------------
@@ -557,7 +573,7 @@ if clicked:
 
     with bot_left:
         if st.button("⬅️ Volver", use_container_width=True):
-            volver_menu()
+            volver_menu_auto()
 
 
     with bot_right:
