@@ -547,21 +547,19 @@ if clicked:
     df_pred_export = df_pond.copy()
     df_pred_export["Clorofila_predicha (μg/L)"] = yhat
 
-    # ========= Botones inferiores: Volver (izq) / Descargar CSV (der) =========
-    bot_left, bot_right = st.columns(2)
-    bot_left, bot_right = st.columns(2)
+# ========= Botones inferiores: Volver (izq) / Descargar CSV (der) =========
+bot_left, bot_right = st.columns(2)
+bot_left, bot_right = st.columns(2)
 
-    with bot_left:
-        if st.button("⬅️ Volver", use_container_width=True):
-            ir_a_streamlit_py()
+if st.button("⬅️ Volver", use_container_width=True):
+    st.switch_page("streamlit.py")
 
-
-    with bot_right:
-        st.download_button(
-            "⬇️ Descargar predicciones (.csv)",
-            data=df_pred_export.to_csv(index=False).encode("utf-8"),
-            file_name="predicciones_estanque.csv",
-            mime="text/csv",
-            use_container_width=True,
+with bot_right:
+     st.download_button(
+        "⬇️ Descargar predicciones (.csv)",
+        data=df_pred_export.to_csv(index=False).encode("utf-8"),
+        file_name="predicciones_estanque.csv",
+        mime="text/csv",
+        use_container_width=True,
         )
 
