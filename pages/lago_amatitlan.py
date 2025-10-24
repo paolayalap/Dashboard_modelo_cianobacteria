@@ -1,7 +1,7 @@
-# ============================================
+# ==========================================================================
 # Streamlit: Visualización AMSA + Entrenamiento + Fuzzy Confusion (SVM/KNN)
 # Sin prompts de "Oxígeno Disuelto": auto-detección/renombrado silencioso
-# ============================================
+# ==========================================================================
 
 import os, io, re, unicodedata
 from pathlib import Path
