@@ -33,6 +33,10 @@ TRAIN_SCALER = None
 TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
 
+# para el CSV de descarga
+if "df_pred_export" not in st.session_state:
+    st.session_state.df_pred_export = None
+
 
 # --- Botón Volver -> streamlit.py ---
 def ir_a_streamlit_py():
@@ -549,18 +553,20 @@ if clicked:
 
 # ========= Botones inferiores: Volver (izq) / Descargar CSV (der) =========
 bot_left, bot_right = st.columns(2)
-bot_left, bot_right = st.columns(2)
 
 with bot_left:
     if st.button("⬅️ Volver", use_container_width=True):
         ir_a_streamlit_py()
 
 with bot_right:
-     st.download_button(
-        "⬇️ Descargar predicciones (.csv)",
-        data=df_pred_export.to_csv(index=False).encode("utf-8"),
-        file_name="predicciones_estanque.csv",
-        mime="text/csv",
-        use_container_width=True,
+    if st.session_state.df_pred_export is not None:
+        st.download_button(
+            "⬇️ Descargar predicciones (.csv)",
+            data=st.session_state.df_pred_export.to_csv(index=False).encode("utf-8"),
+            file_name="predicciones_estanque.csv",
+            mime="text/csv",
+            use_container_width=True,
         )
+    else:
+        st.caption("Genera las predicciones arriba para habilitar la descarga.")
 
