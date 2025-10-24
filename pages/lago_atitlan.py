@@ -1,8 +1,10 @@
 # ============================================
 # Streamlit: CEA — Clorofila & Ficocianina
-# Entrena con DATOS CEA.csv y:
-#  - Predice Clorofila y Ficocianina (estanque)
-#  - Muestra matrices de confusión DIFUSAS para Clorofila y Ficocianina (SVM/KNN)
+# - Entrena con DATOS CEA.csv
+# - Predice Clorofila y Ficocianina para el estanque
+# - Matrices de confusión DIFUSAS:
+#     * Clorofila: 4 clases (0–2, 2–7, 7–40, ≥40)
+#     * Ficocianina: 3 clases (Bajo <30, Moderado 30–90, Alto ≥90) — ajustables en la UI
 # ============================================
 
 import os, io, re, unicodedata
@@ -44,7 +46,7 @@ if "df_pred_export" not in st.session_state:
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="CEA — Clorofila & Ficocianina", layout="wide")
 st.title("🧪 CEA — Entrenamiento y Predicción (Clorofila & Ficocianina)")
-st.caption("Se entrena con **DATOS CEA.csv**. Se generan matrices **difusas** (SVM/KNN) para **Clorofila** y **Ficocianina** y se predice sobre datos del estanque.")
+st.caption("Se entrena con **DATOS CEA.csv**. Matrices **difusas** para Clorofila (4 clases) y Ficocianina (3 clases) y predicción sobre datos del estanque.")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
@@ -55,11 +57,16 @@ REQ_FEATURES = [
     "Turbidez (NTU)",
 ]
 TARGET_CHL = "Clorofila (μg/L)"
-TARGET_PCY = "Ficocianina (μg/L)"  # Ajusta el alias si tu archivo usa otro
+TARGET_PCY = "Ficocianina (μg/L)"  # ajusta alias si tu archivo usa otro
 
-# Bins/labels para CLOROFILA (fijos como referencia)
+# Clases para CLOROFILA (4)
 BINS_CHL = [0, 2, 7, 40, np.inf]
-LABELS_4 = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
+LABELS_CHL = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
+
+# Clases para FICOCIANINA (3) — umbrales ajustables en UI (por defecto 30 y 90)
+DEFAULT_PCY_CUT1 = 30.0
+DEFAULT_PCY_CUT2 = 90.0
+LABELS_PCY = ["Bajo riesgo (<30)", "Riesgo moderado (30–90)", "Alto riesgo (≥90)"]
 
 # ------------------------- Normalización flexible -------------------------
 _def_map = {
@@ -103,7 +110,6 @@ _def_map = {
 }
 
 def _strip_accents(text: str) -> str:
-    # Versión correcta: sin helpers raros
     return ''.join(ch for ch in unicodedata.normalize('NFD', text) if not unicodedata.combining(ch))
 
 def _canon(s: str) -> str:
@@ -162,7 +168,7 @@ def to_numeric_smart(s: pd.Series) -> pd.Series:
     s = s.apply(fix)
     return pd.to_numeric(s, errors="coerce")
 
-# ---------- Fuzzy helpers (genéricos) ----------
+# ---------- Fuzzy helpers ----------
 def _trapezoid(x, a, b, c, d):
     x = float(x)
     if x <= a or x >= d: return 0.0
@@ -177,8 +183,8 @@ def _right_shoulder(x, a, b):
     if x >= b: return 1.0
     return (x - a) / (b - a) if b > a else 1.0
 
+# 4 clases (Clorofila)
 def memberships_4classes(x, cut1, cut2, cut3, eps1, eps2, eps3):
-    """Fuzzifica un escalar x con umbrales cut1<cut2<cut3 y transiciones +/- eps."""
     m0 = _trapezoid(x, 0.0, 0.0, cut1 - eps1, cut1 + eps1)
     m1 = _trapezoid(x, cut1 - eps1, cut1 + eps1, cut2 - eps2, cut2 + eps2)
     m2 = _trapezoid(x, cut2 - eps2, cut2 + eps2, cut3 - eps3, cut3 + eps3)
@@ -187,10 +193,31 @@ def memberships_4classes(x, cut1, cut2, cut3, eps1, eps2, eps3):
     s = v.sum()
     return v / s if s > 0 else v
 
-def fuzzy_confusion_from_probs_generic(y_true_values, pred_proba, cut1, cut2, cut3, eps1, eps2, eps3):
+def fuzzy_confusion_from_probs_4(y_true_values, pred_proba, cut1, cut2, cut3, eps1, eps2, eps3):
     M = np.zeros((4, 4), dtype=float)
     for t, q in zip(y_true_values, pred_proba):
         mu_t = memberships_4classes(float(t), cut1, cut2, cut3, eps1, eps2, eps3)
+        q = np.asarray(q, dtype=float)
+        q = q / q.sum() if q.sum() > 0 else q
+        M += np.outer(mu_t, q)
+    return M
+
+# 3 clases (Ficocianina)
+def memberships_3classes(x, cut1, cut2, eps1, eps2):
+    # Clase 0: bajo (0..cut1)
+    m0 = _trapezoid(x, 0.0, 0.0, cut1 - eps1, cut1 + eps1)
+    # Clase 1: moderado (cut1..cut2)
+    m1 = _trapezoid(x, cut1 - eps1, cut1 + eps1, cut2 - eps2, cut2 + eps2)
+    # Clase 2: alto (>=cut2)
+    m2 = _right_shoulder(x, cut2 - eps2, cut2 + eps2)
+    v = np.array([m0, m1, m2], dtype=float)
+    s = v.sum()
+    return v / s if s > 0 else v
+
+def fuzzy_confusion_from_probs_3(y_true_values, pred_proba, cut1, cut2, eps1, eps2):
+    M = np.zeros((3, 3), dtype=float)
+    for t, q in zip(y_true_values, pred_proba):
+        mu_t = memberships_3classes(float(t), cut1, cut2, eps1, eps2)
         q = np.asarray(q, dtype=float)
         q = q / q.sum() if q.sum() > 0 else q
         M += np.outer(mu_t, q)
@@ -249,7 +276,7 @@ else:
 # Normaliza encabezados
 df_cea = normalize_columns(df_cea)
 
-# Renombrado silencioso de Oxígeno Disuelto si no está con el nombre canónico
+# Renombrado silencioso de Oxígeno Disuelto si no está canónico
 if "Oxígeno Disuelto (mg/L)" not in df_cea.columns:
     cands = []
     for col in df_cea.columns:
@@ -390,22 +417,34 @@ with col_note:
     st.info(
         """
         **Nota:** Se entrenan dos regresores (si hay datos): **Clorofila** y **Ficocianina**
-        usando pH, temperatura, conductividad, oxígeno disuelto y turbidez. Las matrices
-        de confusión difusas usan **clases** definidas por tres umbrales (fijos para
-        Clorofila, ajustables para Ficocianina).
+        usando pH, temperatura, conductividad, oxígeno disuelto y turbidez.
+        Matrices difusas:
+        - Clorofila: 4 clases fijas (2, 7, 40 μg/L).
+        - Ficocianina: 3 clases (por defecto 30 y 90 μg/L), ajustables.
         """
     )
 
-# ------------------------- 3) Matrices difusas con CEA — CLOROFILA -------------------------
+# ------------------------- 3) Matrices difusas con CEA — CLOROFILA (4 clases) -------------------------
 st.subheader("🧩 Matrices de confusión **difusas** — Clorofila (CEA)")
 base_cls_chl = df_cea.dropna(subset=REQ_FEATURES + [TARGET_CHL]).reset_index(drop=True)
 
 if not base_cls_chl.empty:
-    X_all_cls = base_cls_chl[REQ_FEATURES].values
-    y_all_num = base_cls_chl[TARGET_CHL].values
+    # Datos y limpieza robusta
+    X_all_cls = base_cls_chl[REQ_FEATURES].to_numpy()
+    y_all_num = pd.to_numeric(base_cls_chl[TARGET_CHL], errors="coerce").to_numpy()
+    finite_mask = np.isfinite(y_all_num)
+    X_all_cls = X_all_cls[finite_mask]
+    y_all_num = np.clip(y_all_num[finite_mask], 0.0, None)
 
     X_train, X_test, y_train_num, y_test_num = train_test_split(X_all_cls, y_all_num, test_size=0.20, random_state=42)
-    y_train_cls = pd.cut(y_train_num, bins=BINS_CHL, labels=LABELS_4, right=False)
+    y_train_cls = pd.cut(y_train_num, bins=BINS_CHL, labels=LABELS_CHL, right=False, include_lowest=True)
+
+    # Sincroniza y valida clases
+    mask_ok = ~pd.isna(y_train_cls).to_numpy()
+    X_train, y_train_num, y_train_cls = X_train[mask_ok], y_train_num[mask_ok], y_train_cls[mask_ok]
+    if pd.Series(y_train_cls).nunique() < 2:
+        st.error("No hay variedad de clases suficiente para entrenar el clasificador de **Clorofila**.")
+        st.stop()
 
     svm_clf = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
                                                  class_weight="balanced", probability=True, random_state=42))
@@ -420,20 +459,19 @@ if not base_cls_chl.empty:
     svm_classes = svm_clf.named_steps[list(svm_clf.named_steps.keys())[-1]].classes_
     knn_classes = knn_clf.named_steps[list(knn_clf.named_steps.keys())[-1]].classes_
 
-    proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS_4)
-    proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS_4)
+    proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS_CHL)
+    proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS_CHL)
 
-    # Fuzzy fija con 2,7,40 y eps por defecto (0.3,1,5)
-    cm_svm_fuzzy = fuzzy_confusion_from_probs_generic(y_test_num, proba_svm_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
-    cm_knn_fuzzy = fuzzy_confusion_from_probs_generic(y_test_num, proba_knn_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
+    cm_svm_fuzzy = fuzzy_confusion_from_probs_4(y_test_num, proba_svm_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
+    cm_knn_fuzzy = fuzzy_confusion_from_probs_4(y_test_num, proba_knn_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
 
     c1, c2 = st.columns(2)
     with c1:
-        st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS_4, "Matriz **difusa** — SVM (Clorofila — CEA)"),
+        st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS_CHL, "Matriz **difusa** — SVM (Clorofila — CEA)"),
                   use_container_width=True)
         st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
     with c2:
-        st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS_4, "Matriz **difusa** — KNN (Clorofila — CEA)"),
+        st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS_CHL, "Matriz **difusa** — KNN (Clorofila — CEA)"),
                   use_container_width=True)
         st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
 
@@ -441,33 +479,43 @@ if not base_cls_chl.empty:
 else:
     st.warning("No hay datos suficientes de **Clorofila** para matrices difusas.")
 
-# ------------------------- 4) Matrices difusas con CEA — FICOCIANINA -------------------------
+# ------------------------- 4) Matrices difusas con CEA — FICOCIANINA (3 clases) -------------------------
 st.subheader("🧩 Matrices de confusión **difusas** — Ficocianina (CEA)")
 
-# Controles de umbrales y suavidad para Ficocianina
+# Controles de umbrales y suavidad para Ficocianina (3 clases)
 with st.expander("⚙️ Umbrales y suavidad (Ficocianina)"):
-    col_a, col_b, col_c = st.columns(3)
-    cut1 = col_a.number_input("Umbral 1 (μg/L)", min_value=0.0, value=5.0, step=0.5)
-    cut2 = col_b.number_input("Umbral 2 (μg/L)", min_value=float(cut1)+0.1, value=25.0, step=0.5)
-    cut3 = col_c.number_input("Umbral 3 (μg/L)", min_value=float(cut2)+0.1, value=100.0, step=1.0)
+    col_a, col_b = st.columns(2)
+    cut1 = col_a.number_input("Umbral Bajo→Moderado (μg/L)", min_value=0.0, value=float(DEFAULT_PCY_CUT1), step=1.0)
+    cut2 = col_b.number_input("Umbral Moderado→Alto (μg/L)", min_value=float(max(cut1 + 0.1, 1.0)), value=float(DEFAULT_PCY_CUT2), step=1.0)
 
-    col_e1, col_e2, col_e3 = st.columns(3)
-    eps1 = col_e1.number_input("ε alrededor de Umbral 1", min_value=0.0, value=1.0, step=0.1)
-    eps2 = col_e2.number_input("ε alrededor de Umbral 2", min_value=0.0, value=3.0, step=0.1)
-    eps3 = col_e3.number_input("ε alrededor de Umbral 3", min_value=0.0, value=10.0, step=0.5)
+    col_e1, col_e2 = st.columns(2)
+    eps1 = col_e1.number_input("ε alrededor del umbral 1", min_value=0.0, value=3.0, step=0.5)
+    eps2 = col_e2.number_input("ε alrededor del umbral 2", min_value=0.0, value=10.0, step=0.5)
 
 base_cls_pcy = df_cea.dropna(subset=REQ_FEATURES + [TARGET_PCY]).reset_index(drop=True)
 
 if not base_cls_pcy.empty:
-    X_all_pcy = base_cls_pcy[REQ_FEATURES].values
-    y_all_pcy_num = base_cls_pcy[TARGET_PCY].values
+    # Datos y limpieza robusta
+    X_all_pcy = base_cls_pcy[REQ_FEATURES].to_numpy()
+    y_all_pcy_num = pd.to_numeric(base_cls_pcy[TARGET_PCY], errors="coerce").to_numpy()
+    finite_mask_p = np.isfinite(y_all_pcy_num)
+    X_all_pcy = X_all_pcy[finite_mask_p]
+    y_all_pcy_num = np.clip(y_all_pcy_num[finite_mask_p], 0.0, None)
 
-    bins_pcy = [0.0, cut1, cut2, cut3, np.inf]
+    # Bins 3 clases con tus cortes
+    bins_pcy = [0.0, float(cut1), float(cut2), np.inf]
 
     X_train_p, X_test_p, y_train_num_p, y_test_num_p = train_test_split(
         X_all_pcy, y_all_pcy_num, test_size=0.20, random_state=42
     )
-    y_train_cls_pcy = pd.cut(y_train_num_p, bins=bins_pcy, labels=LABELS_4, right=False)
+    y_train_cls_pcy = pd.cut(y_train_num_p, bins=bins_pcy, labels=LABELS_PCY, right=False, include_lowest=True)
+
+    # Sincroniza y valida
+    mask_ok_p = ~pd.isna(y_train_cls_pcy).to_numpy()
+    X_train_p, y_train_num_p, y_train_cls_pcy = X_train_p[mask_ok_p], y_train_num_p[mask_ok_p], y_train_cls_pcy[mask_ok_p]
+    if pd.Series(y_train_cls_pcy).nunique() < 2:
+        st.error("No hay variedad de clases suficiente para entrenar el clasificador de **Ficocianina**. Ajusta umbrales o revisa datos.")
+        st.stop()
 
     svm_clf_pcy = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
                                                      class_weight="balanced", probability=True, random_state=42))
@@ -482,22 +530,18 @@ if not base_cls_pcy.empty:
     svm_classes_pcy = svm_clf_pcy.named_steps[list(svm_clf_pcy.named_steps.keys())[-1]].classes_
     knn_classes_pcy = knn_clf_pcy.named_steps[list(knn_clf_pcy.named_steps.keys())[-1]].classes_
 
-    proba_svm_pcy_al = align_proba_to_labels(proba_svm_pcy, svm_classes_pcy, LABELS_4)
-    proba_knn_pcy_al = align_proba_to_labels(proba_knn_pcy, knn_classes_pcy, LABELS_4)
+    proba_svm_pcy_al = align_proba_to_labels(proba_svm_pcy, svm_classes_pcy, LABELS_PCY)
+    proba_knn_pcy_al = align_proba_to_labels(proba_knn_pcy, knn_classes_pcy, LABELS_PCY)
 
-    cm_svm_fuzzy_pcy = fuzzy_confusion_from_probs_generic(
-        y_test_num_p, proba_svm_pcy_al, cut1, cut2, cut3, eps1, eps2, eps3
-    )
-    cm_knn_fuzzy_pcy = fuzzy_confusion_from_probs_generic(
-        y_test_num_p, proba_knn_pcy_al, cut1, cut2, cut3, eps1, eps2, eps3
-    )
+    cm_svm_fuzzy_pcy = fuzzy_confusion_from_probs_3(y_test_num_p, proba_svm_pcy_al, float(cut1), float(cut2), float(eps1), float(eps2))
+    cm_knn_fuzzy_pcy = fuzzy_confusion_from_probs_3(y_test_num_p, proba_knn_pcy_al, float(cut1), float(cut2), float(eps1), float(eps2))
 
     c3, c4 = st.columns(2)
     with c3:
         st.pyplot(
             plot_confusion_matrix_pretty_float(
-                cm_svm_fuzzy_pcy, LABELS_4,
-                f"Matriz **difusa** — SVM (Ficocianina — CEA)\nUmbrales: {cut1}, {cut2}, {cut3} μg/L"
+                cm_svm_fuzzy_pcy, LABELS_PCY,
+                f"Matriz **difusa** — SVM (Ficocianina — CEA)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
             ),
             use_container_width=True
         )
@@ -505,16 +549,18 @@ if not base_cls_pcy.empty:
     with c4:
         st.pyplot(
             plot_confusion_matrix_pretty_float(
-                cm_knn_fuzzy_pcy, LABELS_4,
-                f"Matriz **difusa** — KNN (Ficocianina — CEA)\nUmbrales: {cut1}, {cut2}, {cut3} μg/L"
+                cm_knn_fuzzy_pcy, LABELS_PCY,
+                f"Matriz **difusa** — KNN (Ficocianina — CEA)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
             ),
             use_container_width=True
         )
         st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy_pcy.sum():.2f}")
 
     st.info(
-        f"Las clases **difusas** para **Ficocianina** usan tus umbrales: **{cut1}**, **{cut2}**, **{cut3}** μg/L, "
-        f"con transiciones suaves ε=({eps1}, {eps2}, {eps3})."
+        "Clases **Ficocianina**:\n"
+        f"- **Bajo riesgo**: < {cut1:.0f} μg/L (menor probabilidad de floración visible)\n"
+        f"- **Riesgo moderado**: {cut1:.0f}–{cut2:.0f} μg/L (monitoreo cercano)\n"
+        f"- **Alto riesgo**: ≥ {cut2:.0f} μg/L (alta probabilidad de floración)"
     )
 else:
     st.warning("No hay datos suficientes de **Ficocianina** para matrices difusas.")
@@ -559,7 +605,7 @@ if clicked:
         # Fallback con SVM de Clorofila si se entrenó
         if 'svm_clf' in locals():
             proba_svm_p = svm_clf.predict_proba(Xp)
-            proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS_4)
+            proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS_CHL)
             centers = np.array([1.0, 4.5, 20.0, 60.0])
             yhat_chl = proba_svm_p_al @ centers
         else:
@@ -574,7 +620,6 @@ if clicked:
         yhat_pcy = np.expm1(y_pred_t) if TRAIN_Y_LOG1P_PCY else y_pred_t
         yhat_pcy = np.clip(yhat_pcy, 0.0, None)
     else:
-        # Si no hay modelo de PCY (no target en CEA), rellena NaN
         yhat_pcy = np.full(len(Xp), np.nan)
 
     # --- Exportar
