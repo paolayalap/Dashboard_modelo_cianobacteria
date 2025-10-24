@@ -34,48 +34,28 @@ TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
 
 # ---------- Navegación robusta a "Home/Inicio/Menu" ----------
-from pathlib import Path
-
-def _canon_nav(s: str) -> str:
-    import unicodedata, re
-    s = unicodedata.normalize("NFD", s)
-    s = "".join(ch for ch in s if not unicodedata.combining(ch))
-    s = s.lower().strip()
-    s = re.sub(r"\s+", " ", s)
-    return s
-
-def volver_menu_auto():
+# --- Botón Volver -> streamlit.py ---
+def ir_a_streamlit_py():
     """
-    Detecta las páginas disponibles y navega a la que parece 'Home/Inicio/Menu'.
-    Requiere Streamlit >= 1.27 (st.switch_page) y funciona en apps multipágina.
+    Intenta abrir el archivo `streamlit.py` usando st.switch_page.
+    Prueba ruta raíz y dentro de /pages. Requiere Streamlit >= 1.27.
     """
-    try:
-        # Disponible en Streamlit 1.27+
-        from streamlit.source_util import get_pages
-        pages = get_pages("")  # dict {hash: {"page_name","icon","script_path"}}
-        if not pages:
-            raise RuntimeError("No se detectan páginas multipágina.")
-        # 1) Busca por nombre visible
-        candidatos = ("home", "inicio", "menu", "principal")
-        for _, p in pages.items():
-            name = _canon_nav(p["page_name"])
-            if any(k in name for k in candidatos):
-                return st.switch_page(p["script_path"])
-        # 2) Busca por nombre de archivo (por si el visible no coincide)
-        for _, p in pages.items():
-            stem = _canon_nav(Path(p["script_path"]).stem)
-            if any(k in stem for k in candidatos):
-                return st.switch_page(p["script_path"])
-        # 3) Como último recurso, ve a la primera página distinta de la actual
-        from streamlit.runtime.scriptrunner import get_script_run_ctx
-        cur_hash = get_script_run_ctx().page_script_hash
-        for h, p in pages.items():
-            if h != cur_hash:
-                return st.switch_page(p["script_path"])
-    except Exception:
-        # Fallback para apps de una sola página con menú propio (session_state)
-        st.session_state["page"] = "menu"
-        st.experimental_rerun()
+    destinos = (
+        "streamlit.py",          # raíz del proyecto
+        "pages/streamlit.py",    # dentro de /pages
+        "./streamlit.py",        # variantes relativas
+        "./pages/streamlit.py",
+    )
+    for d in destinos:
+        try:
+            st.switch_page(d)
+            return
+        except Exception:
+            pass
+    st.error(
+        "No pude abrir **streamlit.py** con `st.switch_page`. "
+        "Verifica que el archivo exista y que el nombre/path coincidan exactamente."
+    )
 
 
 
@@ -573,7 +553,7 @@ if clicked:
 
     with bot_left:
         if st.button("⬅️ Volver", use_container_width=True):
-            volver_menu_auto()
+            ir_a_streamlit_py()
 
 
     with bot_right:
