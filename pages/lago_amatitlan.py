@@ -33,6 +33,36 @@ TRAIN_SCALER = None
 TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
 
+# --------------------- Navegar ------------------
+def volver_menu():
+    """
+    Intenta volver al 'menú principal' en apps multipágina.
+    Si no encuentra la página destino, usa un fallback con session_state.
+    """
+    # 🔁 Ajusta esta lista a los nombres reales de tu menú principal:
+    candidatos = [
+        "Home.py",                 # script raíz
+        "Inicio.py",
+        "Menu.py",
+        "main.py",
+        "streamlit_app.py",
+        "streamlit_app_amsa.py",
+        "pages/Home.py",           # si tu home está dentro de /pages
+        "pages/Menu.py",
+    ]
+
+    for destino in candidatos:
+        try:
+            st.switch_page(destino)
+            return
+        except Exception:
+            pass  # probamos el siguiente
+
+    # 🧭 Fallback para apps de una sola página con menú propio:
+    st.session_state["page"] = "menu"   # <- pon aquí la clave que usa tu menú
+    st.experimental_rerun()
+
+
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
@@ -523,20 +553,12 @@ if clicked:
 
     # ========= Botones inferiores: Volver (izq) / Descargar CSV (der) =========
     bot_left, bot_right = st.columns(2)
-    with bot_left:
-        # OPCIÓN A (multi-página nativa de Streamlit 1.27+):
-        volver = st.button("⬅️ Volver", use_container_width=True)
-        if volver:
-            # Cambia el path a tu página principal (Home) según tu estructura:
-            #   - si está en /pages/Menu.py:  st.switch_page("pages/Menu.py")
-            #   - si es el script principal:  st.switch_page("Home.py")
-            st.switch_page("Home.py")
+    bot_left, bot_right = st.columns(2)
 
-        # OPCIÓN B (si NO usas multi-página nativa):
-        # Usa un flag de session_state para volver a tu “menú” propio.
-        # if st.button("⬅️ Volver", use_container_width=True):
-        #     st.session_state["page"] = "menu"  # tu lógica de navegación
-        #     st.experimental_rerun()
+    with bot_left:
+        if st.button("⬅️ Volver", use_container_width=True):
+            volver_menu()
+
 
     with bot_right:
         st.download_button(
