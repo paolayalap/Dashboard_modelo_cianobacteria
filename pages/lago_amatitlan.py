@@ -560,21 +560,47 @@ if clicked:
     df_pred_export["Clorofila_predicha (μg/L)"] = yhat
 
 # ========= Botones inferiores: Volver (izq) / Descargar CSV (der) =========
-bot_left, bot_right = st.columns(2)
+from pathlib import Path
 
-with bot_left:
-    if st.button("⬅️ Volver", use_container_width=True):
-        ir_a_streamlit_py()
+# ===== Botones inferiores =====
+col_left, col_right = st.columns(2)
 
-with bot_right:
-    if st.session_state.df_pred_export is not None:
+with col_left:
+    # Candidatos posibles para tu página principal fuera de /pages
+    candidatos = [
+        "streamlit.py",   # el que tú quieres
+        "Home.py",
+        "Inicio.py",
+        "main.py",
+        "app.py",
+    ]
+    destino = next((c for c in candidatos if Path(c).exists()), None)
+
+    if destino:
+        # Navegación robusta: usa page_link si existe el archivo
+        st.page_link(destino, label="⬅️ Volver", icon=":material/arrow_back:", use_container_width=True)
+    else:
+        st.button("⬅️ Volver", use_container_width=True, disabled=True)
+        st.caption("No encontré una página raíz como 'streamlit.py'. "
+                   "Asegúrate de ejecutar `streamlit run streamlit.py` desde el directorio que lo contiene.")
+
+with col_right:
+    # Botón de descarga: solo si ya hay predicciones en sesión
+    if "df_pred_export" in st.session_state:
+        csv_bytes = st.session_state.df_pred_export.to_csv(index=False).encode("utf-8")
         st.download_button(
             "⬇️ Descargar predicciones (.csv)",
-            data=st.session_state.df_pred_export.to_csv(index=False).encode("utf-8"),
+            data=csv_bytes,
             file_name="predicciones_estanque.csv",
             mime="text/csv",
             use_container_width=True,
         )
     else:
-        st.caption("Genera las predicciones arriba para habilitar la descarga.")
+        st.download_button(
+            "⬇️ Descargar predicciones (.csv)",
+            data=b"",
+            disabled=True,
+            help="Primero presiona 'Predecir con datos del estanque'.",
+            use_container_width=True,
+        )
 
