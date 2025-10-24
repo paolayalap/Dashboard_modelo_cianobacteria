@@ -291,7 +291,7 @@ if "Oxígeno Disuelto (mg/L)" not in df_cea.columns:
         df_cea.rename(columns={cands[0]: "Oxígeno Disuelto (mg/L)"}, inplace=True)
 
 # Vista previa
-st.markdown("**Vista previa (10 primeras filas):**")
+st.markdown("**Vista previa (primeras 10 filas):**")
 st.table(df_cea.head(10))
 with st.expander("⬇️ Ver todos los datos CEA"):
     st.dataframe(df_cea, use_container_width=True)
@@ -318,7 +318,7 @@ base_x = df_cea.dropna(subset=REQ_FEATURES).reset_index(drop=True)
 X_all = base_x[REQ_FEATURES].values
 
 # ------------------------- 2) Curvas de entrenamiento y modelos -------------------------
-st.subheader("📈 Curva(s) de entrenamiento y nota")
+st.subheader("📈 Análisis de la regresión del modelo")
 col_curve, col_note = st.columns([2, 1])
 
 with col_curve:
@@ -329,7 +329,7 @@ with col_curve:
         fig_loss, ax = plt.subplots()
         ax.plot(losses, label="Pérdida entrenamiento")
         ax.plot(val_losses, label="Pérdida validación")
-        ax.set_xlabel("Época"); ax.set_ylabel("Loss"); ax.set_title("Curva de entrenamiento (simulada)")
+        ax.set_xlabel("Época"); ax.set_ylabel("Loss"); ax.set_title("Curva de entrenamiento")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
         st.pyplot(fig_loss, use_container_width=True)
 
@@ -380,7 +380,7 @@ with col_curve:
                 fig_loss, ax = plt.subplots()
                 ax.plot(hist.history["loss"], label="Pérdida entrenamiento (Clorofila)")
                 ax.plot(hist.history["val_loss"], label="Pérdida validación (Clorofila)")
-                ax.set_xlabel("Época"); ax.set_ylabel("Loss")
+                ax.set_xlabel("Época"); ax.set_ylabel("Pérdida")
                 ax.set_title("Curva de entrenamiento (NN Clorofila — CEA)")
                 ax.grid(True); ax.legend(); fig_loss.tight_layout()
 
@@ -406,7 +406,7 @@ with col_curve:
                     fig_loss, ax = plt.subplots()
                     ax.plot(hist_p.history["loss"], label="Pérdida entrenamiento (Ficocianina)")
                     ax.plot(hist_p.history["val_loss"], label="Pérdida validación (Ficocianina)")
-                    ax.set_xlabel("Época"); ax.set_ylabel("Loss")
+                    ax.set_xlabel("Época"); ax.set_ylabel("Pérdida")
                     ax.set_title("Curva de entrenamiento (NN Ficocianina — CEA)")
                     ax.grid(True); ax.legend(); fig_loss.tight_layout()
 
@@ -418,7 +418,7 @@ with col_curve:
 with col_note:
     st.info(
         """
-        **Nota:** Se entrenan dos regresores (si hay datos): **Clorofila** y **Ficocianina**
+        **Nota:** Se entrena el modelo para dos salidas: **Clorofila** y **Ficocianina**
         usando pH, temperatura, conductividad, oxígeno disuelto y turbidez.
         Matrices difusas:
         - Clorofila: 4 clases fijas (2, 7, 40 μg/L).
@@ -543,7 +543,7 @@ if not base_cls_pcy.empty:
         st.pyplot(
             plot_confusion_matrix_pretty_float(
                 cm_svm_fuzzy_pcy, LABELS_PCY,
-                f"Matriz **difusa** — SVM (Ficocianina — CEA)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
+                f"Matriz de confusión con lógica difusa — SVM (Ficocianina — CEA)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
             ),
             use_container_width=True
         )
@@ -552,7 +552,7 @@ if not base_cls_pcy.empty:
         st.pyplot(
             plot_confusion_matrix_pretty_float(
                 cm_knn_fuzzy_pcy, LABELS_PCY,
-                f"Matriz **difusa** — KNN (Ficocianina — CEA)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
+                f"Matriz de confusión con lógica difusa — KNN (Ficocianina — CEA)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
             ),
             use_container_width=True
         )
