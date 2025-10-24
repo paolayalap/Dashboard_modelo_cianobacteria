@@ -33,7 +33,7 @@ TRAIN_SCALER = None
 TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
 
-# ---------- Navegación robusta a "Home/Inicio/Menu" ----------
+
 # --- Botón Volver -> streamlit.py ---
 def ir_a_streamlit_py():
     """
@@ -551,8 +551,9 @@ if clicked:
 bot_left, bot_right = st.columns(2)
 bot_left, bot_right = st.columns(2)
 
-if st.button("⬅️ Volver", use_container_width=True):
-    st.switch_page("streamlit.py")
+with bot_left:
+    if st.button("⬅️ Volver", use_container_width=True):
+        ir_a_streamlit_py()
 
 with bot_right:
      st.download_button(
