@@ -87,12 +87,6 @@ _def_map = {
     "od (mg/l)": "Oxígeno Disuelto (mg/L)",
     "o2 disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
 
-    # turbidez
-    "turbidez (ntu)": "Turbidez (NTU)",
-    "turbiedad (ntu)": "Turbidez (NTU)",
-    "turbidez": "Turbidez (NTU)",
-    "turbiedad": "Turbidez (NTU)",
-
     # objetivos
     "clorofila (μg/l)": TARGET_CHL,
     "clorofila (ug/l)": TARGET_CHL,
@@ -109,10 +103,8 @@ _def_map = {
 }
 
 def _strip_accents(text: str) -> str:
-    return ''.join(ch for ch in unicodedata.normalize('NFD', text) if not unicadicritics(ch:=ch))
-
-def unicadicritics(ch):  # helper pequeño (evita capturar combining)
-    return unicodedata.combining(ch)
+    # Versión correcta: sin helpers raros
+    return ''.join(ch for ch in unicodedata.normalize('NFD', text) if not unicodedata.combining(ch))
 
 def _canon(s: str) -> str:
     s = str(s)
@@ -257,7 +249,7 @@ else:
 # Normaliza encabezados
 df_cea = normalize_columns(df_cea)
 
-# Renombrado silencioso de Oxígeno Disuelto
+# Renombrado silencioso de Oxígeno Disuelto si no está con el nombre canónico
 if "Oxígeno Disuelto (mg/L)" not in df_cea.columns:
     cands = []
     for col in df_cea.columns:
@@ -399,7 +391,8 @@ with col_note:
         """
         **Nota:** Se entrenan dos regresores (si hay datos): **Clorofila** y **Ficocianina**
         usando pH, temperatura, conductividad, oxígeno disuelto y turbidez. Las matrices
-        de confusión difusas usan **clases** definidas por tres umbrales (editables en la UI para Ficocianina).
+        de confusión difusas usan **clases** definidas por tres umbrales (fijos para
+        Clorofila, ajustables para Ficocianina).
         """
     )
 
@@ -463,21 +456,18 @@ with st.expander("⚙️ Umbrales y suavidad (Ficocianina)"):
     eps2 = col_e2.number_input("ε alrededor de Umbral 2", min_value=0.0, value=3.0, step=0.1)
     eps3 = col_e3.number_input("ε alrededor de Umbral 3", min_value=0.0, value=10.0, step=0.5)
 
-# Preparación de datos y labels según umbrales elegidos
 base_cls_pcy = df_cea.dropna(subset=REQ_FEATURES + [TARGET_PCY]).reset_index(drop=True)
 
 if not base_cls_pcy.empty:
     X_all_pcy = base_cls_pcy[REQ_FEATURES].values
     y_all_pcy_num = base_cls_pcy[TARGET_PCY].values
 
-    # Bins y etiquetas para clasificar (usamos las 4 etiquetas estándar)
     bins_pcy = [0.0, cut1, cut2, cut3, np.inf]
-    y_train_cls_pcy_labels = LABELS_4
 
     X_train_p, X_test_p, y_train_num_p, y_test_num_p = train_test_split(
         X_all_pcy, y_all_pcy_num, test_size=0.20, random_state=42
     )
-    y_train_cls_pcy = pd.cut(y_train_num_p, bins=bins_pcy, labels=y_train_cls_pcy_labels, right=False)
+    y_train_cls_pcy = pd.cut(y_train_num_p, bins=bins_pcy, labels=LABELS_4, right=False)
 
     svm_clf_pcy = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
                                                      class_weight="balanced", probability=True, random_state=42))
@@ -495,7 +485,6 @@ if not base_cls_pcy.empty:
     proba_svm_pcy_al = align_proba_to_labels(proba_svm_pcy, svm_classes_pcy, LABELS_4)
     proba_knn_pcy_al = align_proba_to_labels(proba_knn_pcy, knn_classes_pcy, LABELS_4)
 
-    # Matrices difusas usando los UMBRALES ELEGIDOS por la usuaria (cut1,cut2,cut3) + eps
     cm_svm_fuzzy_pcy = fuzzy_confusion_from_probs_generic(
         y_test_num_p, proba_svm_pcy_al, cut1, cut2, cut3, eps1, eps2, eps3
     )
@@ -506,15 +495,19 @@ if not base_cls_pcy.empty:
     c3, c4 = st.columns(2)
     with c3:
         st.pyplot(
-            plot_confusion_matrix_pretty_float(cm_svm_fuzzy_pcy, LABELS_4,
-                                               f"Matriz **difusa** — SVM (Ficocianina — CEA)\nUmbrales: {cut1}, {cut2}, {cut3} μg/L"),
+            plot_confusion_matrix_pretty_float(
+                cm_svm_fuzzy_pcy, LABELS_4,
+                f"Matriz **difusa** — SVM (Ficocianina — CEA)\nUmbrales: {cut1}, {cut2}, {cut3} μg/L"
+            ),
             use_container_width=True
         )
         st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy_pcy.sum():.2f}")
     with c4:
         st.pyplot(
-            plot_confusion_matrix_pretty_float(cm_knn_fuzzy_pcy, LABELS_4,
-                                               f"Matriz **difusa** — KNN (Ficocianina — CEA)\nUmbrales: {cut1}, {cut2}, {cut3} μg/L"),
+            plot_confusion_matrix_pretty_float(
+                cm_knn_fuzzy_pcy, LABELS_4,
+                f"Matriz **difusa** — KNN (Ficocianina — CEA)\nUmbrales: {cut1}, {cut2}, {cut3} μg/L"
+            ),
             use_container_width=True
         )
         st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy_pcy.sum():.2f}")
@@ -612,4 +605,3 @@ with col_right:
             help="Primero presiona 'Predecir con datos del estanque'.",
             use_container_width=True,
         )
-
