@@ -1,10 +1,6 @@
 # ============================================
-# Streamlit: CEA — Clorofila & Ficocianina
-# - Entrena con DATOS CEA.csv
-# - Predice Clorofila y Ficocianina para el estanque
-# - Matrices de confusión DIFUSAS:
-#     * Clorofila: 4 clases (0–2, 2–7, 7–40, ≥40)
-#     * Ficocianina: 3 clases (Bajo <30, Moderado 30–90, Alto ≥90) — ajustables en la UI
+# Streamlit: Visualización CEA + AMSA + Entrenamiento + Fuzzy Confusion (SVM/KNN)
+# Modelo entrenado con "DATOS CEA Y AMSA.csv" y predicción para datos del estanque
 # ============================================
 
 import os, io, re, unicodedata
@@ -23,7 +19,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 
-# ====== Opcional (para curvas de entrenamiento con red simple) ======
+# ====== Opcional (para curva de entrenamiento con red simple) ======
 try:
     import tensorflow as tf
     from tensorflow import keras
@@ -32,21 +28,19 @@ try:
 except Exception:
     KERAS_OK = False
 
-# --- Estado global: regresores para predicción continua ---
+# --- Estado global para el modelo de la curva ---
 TRAIN_SCALER = None
-TRAIN_MODEL_CHL = None
-TRAIN_MODEL_PCY = None
-TRAIN_Y_LOG1P_CHL = False
-TRAIN_Y_LOG1P_PCY = False
+TRAIN_MODEL = None
+TRAIN_Y_LOG1P = False
 
-# Para exportar CSV de predicciones
+# para el CSV de descarga
 if "df_pred_export" not in st.session_state:
     st.session_state.df_pred_export = None
 
 # ------------------------- Config UI -------------------------
-st.set_page_config(page_title="CEA — Clorofila & Ficocianina", layout="wide")
-st.title("🧪 CEA — Entrenamiento y Predicción (Clorofila & Ficocianina)")
-st.caption("Se entrena con **DATOS CEA.csv**. Matrices **difusas** para Clorofila (4 clases) y Ficocianina (3 clases) y predicción sobre datos del estanque.")
+st.set_page_config(page_title="CEA + AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
+st.title("📊 CEA + AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
+st.caption("Se entrena un modelo con **DATOS CEA Y AMSA.csv**. Luego se muestran matrices difusas para SVM y KNN. Finalmente, puedes evaluar con el dataframe del estanque.")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
@@ -56,17 +50,9 @@ REQ_FEATURES = [
     "Oxígeno Disuelto (mg/L)",
     "Turbidez (NTU)",
 ]
-TARGET_CHL = "Clorofila (μg/L)"
-TARGET_PCY = "Ficocianina (μg/L)"  # ajusta alias si tu archivo usa otro
-
-# Clases para CLOROFILA (4)
-BINS_CHL = [0, 2, 7, 40, np.inf]
-LABELS_CHL = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
-
-# Clases para FICOCIANINA (3) — umbrales ajustables en UI (por defecto 30 y 90)
-DEFAULT_PCY_CUT1 = 30.0
-DEFAULT_PCY_CUT2 = 90.0
-LABELS_PCY = ["Bajo riesgo (<30)", "Riesgo moderado (30–90)", "Alto riesgo (≥90)"]
+TARGET = "Clorofila (μg/L)"
+BINS = [0, 2, 7, 40, np.inf]
+LABELS = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
 
 # ------------------------- Normalización flexible -------------------------
 _def_map = {
@@ -94,22 +80,23 @@ _def_map = {
     "od (mg/l)": "Oxígeno Disuelto (mg/L)",
     "o2 disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
 
-    # objetivos
-    "clorofila (μg/l)": TARGET_CHL,
-    "clorofila (ug/l)": TARGET_CHL,
-    "clorofila": TARGET_CHL,
-    "chlorophyll a": TARGET_CHL,
-    "chlorophyll-a": TARGET_CHL,
+    # turbidez
+    "turbidez (ntu)": "Turbidez (NTU)",
+    "turbiedad (ntu)": "Turbidez (NTU)",
+    "turbidez": "Turbidez (NTU)",
+    "turbiedad": "Turbidez (NTU)",
 
-    "ficocianina (μg/l)": TARGET_PCY,
-    "ficocianina (ug/l)": TARGET_PCY,
-    "ficocianina": TARGET_PCY,
-    "phycocyanin (μg/l)": TARGET_PCY,
-    "phycocyanin (ug/l)": TARGET_PCY,
-    "phycocyanin": TARGET_PCY,
+    # objetivo
+    "clorofila (μg/l)": TARGET,
+    "clorofila (ug/l)": TARGET,
+    "clorofila": TARGET,
+    "chlorophyll a": TARGET,
+    "chlorophyll-a": TARGET,
+    "chlorophyll": TARGET,
 }
 
 def _strip_accents(text: str) -> str:
+    """Elimina diacríticos (tildes) para comparar de forma robusta."""
     return ''.join(ch for ch in unicodedata.normalize('NFD', text) if not unicodedata.combining(ch))
 
 def _canon(s: str) -> str:
@@ -117,7 +104,7 @@ def _canon(s: str) -> str:
     s = unicodedata.normalize("NFKD", s)
     s = s.replace("µ", "u").replace("μ", "u")
     s = "".join(ch for ch in s if ch.isprintable())
-    s = _strip_accents(s)
+    s = _strip_accents(s)            # <— quitamos tildes
     s = s.lower().strip()
     s = re.sub(r"\s+", " ", s)
     return s
@@ -126,8 +113,10 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     ren = {}
     for c in df.columns:
         k = _canon(c)
+        # 1) coincidencia directa
         if k in _def_map:
             ren[c] = _def_map[k]; continue
+        # 2) reglas heurísticas
         if "conductividad" in k and ("us/cm" in k or "uscm" in k or "s/cm" in k):
             ren[c] = "Conductividad (μS/cm)"; continue
         if "temperatura" in k or k.startswith("temp"):
@@ -139,9 +128,7 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             and ("mg/l" in k or "mg l" in k or "mg" in k)):
             ren[c] = "Oxígeno Disuelto (mg/L)"; continue
         if "clorofila" in k or "chlorophyll" in k:
-            ren[c] = TARGET_CHL; continue
-        if "ficocianin" in k or "phycocyanin" in k:
-            ren[c] = TARGET_PCY; continue
+            ren[c] = "Clorofila (μg/L)"; continue
         ren[c] = c
     out = df.rename(columns=ren)
     out.columns = [col.replace("(mg/l)", "(mg/L)") for col in out.columns]
@@ -157,6 +144,7 @@ def read_csv_robust(path_or_buffer) -> pd.DataFrame:
     return pd.read_csv(path_or_buffer, engine="python")
 
 def to_numeric_smart(s: pd.Series) -> pd.Series:
+    """Convierte strings con separadores locales (miles/decimales) a float de forma robusta."""
     s = s.astype(str).str.replace("\u00A0", "", regex=False).str.strip()
     def fix(x: str) -> str:
         x = x.replace(" ", "")
@@ -183,41 +171,22 @@ def _right_shoulder(x, a, b):
     if x >= b: return 1.0
     return (x - a) / (b - a) if b > a else 1.0
 
-# 4 clases (Clorofila)
-def memberships_4classes(x, cut1, cut2, cut3, eps1, eps2, eps3):
-    m0 = _trapezoid(x, 0.0, 0.0, cut1 - eps1, cut1 + eps1)
-    m1 = _trapezoid(x, cut1 - eps1, cut1 + eps1, cut2 - eps2, cut2 + eps2)
-    m2 = _trapezoid(x, cut2 - eps2, cut2 + eps2, cut3 - eps3, cut3 + eps3)
-    m3 = _right_shoulder(x, cut3 - eps3, cut3 + eps3)
+DEFAULT_EPS = (0.3, 1.0, 5.0)
+
+def fuzzy_memberships_scalar(x, eps=DEFAULT_EPS):
+    e1, e2, e3 = eps
+    m0 = _trapezoid(x, 0.0, 0.0, 2.0 - e1, 2.0 + e1)
+    m1 = _trapezoid(x, 2.0 - e1, 2.0 + e1, 7.0 - e2, 7.0 + e2)
+    m2 = _trapezoid(x, 7.0 - e2, 7.0 + e2, 40.0 - e3, 40.0 + e3)
+    m3 = _right_shoulder(x, 40.0 - e3, 40.0 + e3)
     v = np.array([m0, m1, m2, m3], dtype=float)
     s = v.sum()
     return v / s if s > 0 else v
 
-def fuzzy_confusion_from_probs_4(y_true_values, pred_proba, cut1, cut2, cut3, eps1, eps2, eps3):
-    M = np.zeros((4, 4), dtype=float)
+def fuzzy_confusion_from_probs(y_true_values, pred_proba, n_classes=4, eps=DEFAULT_EPS):
+    M = np.zeros((n_classes, n_classes), dtype=float)
     for t, q in zip(y_true_values, pred_proba):
-        mu_t = memberships_4classes(float(t), cut1, cut2, cut3, eps1, eps2, eps3)
-        q = np.asarray(q, dtype=float)
-        q = q / q.sum() if q.sum() > 0 else q
-        M += np.outer(mu_t, q)
-    return M
-
-# 3 clases (Ficocianina)
-def memberships_3classes(x, cut1, cut2, eps1, eps2):
-    # 0: bajo (0..cut1)
-    m0 = _trapezoid(x, 0.0, 0.0, cut1 - eps1, cut1 + eps1)
-    # 1: moderado (cut1..cut2)
-    m1 = _trapezoid(x, cut1 - eps1, cut1 + eps1, cut2 - eps2, cut2 + eps2)
-    # 2: alto (>=cut2)
-    m2 = _right_shoulder(x, cut2 - eps2, cut2 + eps2)
-    v = np.array([m0, m1, m2], dtype=float)
-    s = v.sum()
-    return v / s if s > 0 else v
-
-def fuzzy_confusion_from_probs_3(y_true_values, pred_proba, cut1, cut2, eps1, eps2):
-    M = np.zeros((3, 3), dtype=float)
-    for t, q in zip(y_true_values, pred_proba):
-        mu_t = memberships_3classes(float(t), cut1, cut2, eps1, eps2)
+        mu_t = fuzzy_memberships_scalar(t, eps)
         q = np.asarray(q, dtype=float)
         q = q / q.sum() if q.sum() > 0 else q
         M += np.outer(mu_t, q)
@@ -248,83 +217,80 @@ def align_proba_to_labels(proba: np.ndarray, classes_pred, labels_order):
     n = proba.shape[0]; k = len(labels_order)
     out = np.zeros((n, k), dtype=float)
     for j, lab in enumerate(labels_order):
-        if lab in idx_map:
-            out[:, j] = proba[:, idx_map[lab]]
-        else:
-            out[:, j] = 0.0
+        if lab in idx_map: out[:, j] = proba[:, idx_map[lab]]
+        else: out[:, j] = 0.0
     row_sums = out.sum(axis=1, keepdims=True)
     np.divide(out, row_sums, out=out, where=row_sums > 0)
     return out
 
-# ------------------------- 1) Tabla CEA -------------------------
-DEFAULT_DIR_CEA = Path("datasets_lagos")
+# ------------------------- 1) Tabla CEA + AMSA -------------------------
+DEFAULT_DIR_LAKES = Path("datasets_lagos")
 DEFAULT_DIR_POND = Path("pruebas_piloto")
-DEFAULT_CEA = DEFAULT_DIR_CEA / "DATOS CEA.csv"
+DEFAULT_COMBINED = DEFAULT_DIR_LAKES / "DATOS CEA Y AMSA.csv"
 
-st.subheader("📄 Datos CEA — vista inicial")
+st.subheader("📄 Datos CEA + AMSA — vista inicial")
 
-cea_path_input = st.text_input("Ruta a **DATOS CEA.csv**", value=str(DEFAULT_CEA))
-cea_path = Path(cea_path_input)
+combined_path_input = st.text_input("Ruta a **DATOS CEA Y AMSA.csv**", value=str(DEFAULT_COMBINED))
+combined_path = Path(combined_path_input)
 
-if not cea_path.exists():
+if not combined_path.exists():
     st.warning("No encuentro el archivo en la ruta indicada. Puedes **subirlo** aquí abajo.")
-    up = st.file_uploader("Sube DATOS CEA.csv", type=["csv"])
+    up = st.file_uploader("Sube DATOS CEA Y AMSA.csv", type=["csv"])
     if up is None:
         st.stop()
-    df_cea = read_csv_robust(up)
+    df_combined = read_csv_robust(up)
 else:
-    df_cea = read_csv_robust(cea_path)
+    df_combined = read_csv_robust(combined_path)
 
 # Normaliza encabezados
-df_cea = normalize_columns(df_cea)
+df_combined = normalize_columns(df_combined)
 
-# Renombrado silencioso de Oxígeno Disuelto si no está canónico
-if "Oxígeno Disuelto (mg/L)" not in df_cea.columns:
+# Renombrado **silencioso** de Oxígeno Disuelto si falta el nombre canónico
+if "Oxígeno Disuelto (mg/L)" not in df_combined.columns:
     cands = []
-    for col in df_cea.columns:
+    for col in df_combined.columns:
         kc = _canon(col)
         if (("oxigeno" in kc or "oxygen" in kc or "dissolved oxygen" in kc
              or re.search(r"\bdo\b", kc) or re.search(r"\bod\b", kc) or "o2" in kc)
             and ("mg/l" in kc or "mg l" in kc or "mg" in kc)):
             cands.append(col)
     if cands:
-        df_cea.rename(columns={cands[0]: "Oxígeno Disuelto (mg/L)"}, inplace=True)
+        df_combined.rename(columns={cands[0]: "Oxígeno Disuelto (mg/L)"}, inplace=True)
 
-# Vista previa
+# Vista previa (10 filas) + expander
 st.markdown("**Vista previa (10 primeras filas):**")
-st.table(df_cea.head(10))
-with st.expander("⬇️ Ver todos los datos CEA"):
-    st.dataframe(df_cea, use_container_width=True)
+st.table(df_combined.head(10))
+with st.expander("⬇️ Ver todos los datos CEA + AMSA"):
+    st.dataframe(df_combined, use_container_width=True)
 
 # Conversión numérica robusta
-for c in REQ_FEATURES + [TARGET_CHL, TARGET_PCY]:
-    if c in df_cea.columns:
-        df_cea[c] = to_numeric_smart(df_cea[c])
+for c in REQ_FEATURES + [TARGET]:
+    if c in df_combined.columns:
+        df_combined[c] = to_numeric_smart(df_combined[c])
 
-# Validación de X
-faltantes_x = [c for c in REQ_FEATURES if c not in df_cea.columns]
-if faltantes_x:
-    st.error(f"Faltan columnas de entrada en CEA: {faltantes_x}. Ajusta nombres o el mapa en el script.")
+# Validación de columnas
+faltantes = [c for c in REQ_FEATURES + [TARGET] if c not in df_combined.columns]
+if faltantes:
+    st.error(f"Faltan columnas requeridas en CEA + AMSA: {faltantes}. Renombra tus columnas o ajusta el mapa en el script.")
     st.stop()
 
-# Al menos un target
-targets_present = [t for t in [TARGET_CHL, TARGET_PCY] if t in df_cea.columns]
-if not targets_present:
-    st.error(f"No se encontró ninguna columna objetivo ({TARGET_CHL} o {TARGET_PCY}) en CEA.")
+# Limpieza básica
+base = df_combined.dropna(subset=REQ_FEATURES + [TARGET]).reset_index(drop=True)
+if base.empty:
+    st.error("El archivo CEA + AMSA no tiene filas válidas tras limpieza.")
     st.stop()
 
-# Limpieza mínima
-base_x = df_cea.dropna(subset=REQ_FEATURES).reset_index(drop=True)
-X_all = base_x[REQ_FEATURES].values
+X_all = base[REQ_FEATURES].values
+y_all = base[TARGET].values
 
-# ------------------------- 2) Curvas de entrenamiento y modelos -------------------------
-st.subheader("📈 Curva(s) de entrenamiento y nota")
+# ------------------------- 2) Curva de entrenamiento + Nota -------------------------
+st.subheader("📈 Curva de entrenamiento (izquierda) y nota (derecha)")
 col_curve, col_note = st.columns([2, 1])
 
 with col_curve:
     if not KERAS_OK:
-        st.warning("TensorFlow/Keras no está disponible. Se mostrará una curva **simulada**.")
-        losses = np.linspace(1.0, 0.25, 60) + 0.05*np.random.randn(60)
+        st.warning("TensorFlow/Keras no está disponible. Se mostrará una curva ficticia.")
+        losses = np.linspace(1.0, 0.2, 60) + 0.05*np.random.randn(60)
         val_losses = losses + 0.05*np.random.randn(60) + 0.05
         fig_loss, ax = plt.subplots()
         ax.plot(losses, label="Pérdida entrenamiento")
@@ -332,261 +298,152 @@ with col_curve:
         ax.set_xlabel("Época"); ax.set_ylabel("Loss"); ax.set_title("Curva de entrenamiento (simulada)")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
         st.pyplot(fig_loss, use_container_width=True)
-
         TRAIN_SCALER = None
-        TRAIN_MODEL_CHL = None
-        TRAIN_MODEL_PCY = None
-        TRAIN_Y_LOG1P_CHL = False
-        TRAIN_Y_LOG1P_PCY = False
+        TRAIN_MODEL = None
+        TRAIN_Y_LOG1P = False
     else:
+        # --- Split
+        X_tr, X_te, y_tr, y_te = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
+
+        # --- Escalado de X
         scaler = StandardScaler()
-        X_all_s = scaler.fit_transform(X_all)
+        X_tr_s = scaler.fit_transform(X_tr)
+        X_te_s = scaler.transform(X_te)
+
+        # --- Transformación del objetivo
+        Y_LOG1P = True
+        y_tr_t = np.log1p(y_tr) if Y_LOG1P else y_tr
+        y_te_t = np.log1p(y_te) if Y_LOG1P else y_te
+
+        # --- Modelo
+        model = keras.Sequential([
+            layers.Input(shape=(X_tr_s.shape[1],)),
+            layers.Dense(128, activation="relu"),
+            layers.Dropout(0.15),
+            layers.Dense(64, activation="relu"),
+            layers.Dense(1)
+        ])
+
+        # --- Pérdida robusta + callbacks
+        model.compile(
+            optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+            loss=keras.losses.Huber(delta=1.0)
+        )
+        es = keras.callbacks.EarlyStopping(
+            monitor="val_loss", patience=25, restore_best_weights=True, verbose=0
+        )
+        rl = keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0
+        )
+
+        hist = model.fit(
+            X_tr_s, y_tr_t,
+            validation_data=(X_te_s, y_te_t),
+            epochs=400, batch_size=32, verbose=0,
+            callbacks=[es, rl]
+        )
+
+        # --- Curva
+        fig_loss, ax = plt.subplots()
+        ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
+        ax.plot(hist.history["val_loss"], label="Pérdida validación")
+        ax.set_xlabel("Época"); ax.set_ylabel("Loss")
+        ax.set_title("Curva de entrenamiento (Regresión NN sobre CEA + AMSA)")
+        ax.grid(True); ax.legend(); fig_loss.tight_layout()
+        st.pyplot(fig_loss, use_container_width=True)
+
+        # Guardar para inferencia posterior
         TRAIN_SCALER = scaler
-
-        def build_regressor(input_dim: int):
-            model = keras.Sequential([
-                layers.Input(shape=(input_dim,)),
-                layers.Dense(128, activation="relu"),
-                layers.Dropout(0.15),
-                layers.Dense(64, activation="relu"),
-                layers.Dense(1)
-            ])
-            model.compile(
-                optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-                loss=keras.losses.Huber(delta=1.0)
-            )
-            return model
-
-        fig_loss = None
-
-        # ---- Modelo Clorofila
-        if TARGET_CHL in df_cea.columns:
-            base_chl = df_cea.dropna(subset=REQ_FEATURES + [TARGET_CHL]).reset_index(drop=True)
-            if not base_chl.empty:
-                Xc = scaler.transform(base_chl[REQ_FEATURES].values)
-                yc = base_chl[TARGET_CHL].to_numpy()
-                X_tr, X_te, y_tr, y_te = train_test_split(Xc, yc, test_size=0.2, random_state=42)
-                TRAIN_Y_LOG1P_CHL = True
-                y_tr_t = np.log1p(y_tr) if TRAIN_Y_LOG1P_CHL else y_tr
-                y_te_t = np.log1p(y_te) if TRAIN_Y_LOG1P_CHL else y_te
-
-                model_chl = build_regressor(X_tr.shape[1])
-                es = keras.callbacks.EarlyStopping(monitor="val_loss", patience=25, restore_best_weights=True, verbose=0)
-                rl = keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0)
-                hist = model_chl.fit(X_tr, y_tr_t, validation_data=(X_te, y_te_t),
-                                     epochs=400, batch_size=32, verbose=0, callbacks=[es, rl])
-                TRAIN_MODEL_CHL = model_chl
-
-                fig_loss, ax = plt.subplots()
-                ax.plot(hist.history["loss"], label="Pérdida entrenamiento (Clorofila)")
-                ax.plot(hist.history["val_loss"], label="Pérdida validación (Clorofila)")
-                ax.set_xlabel("Época"); ax.set_ylabel("Loss")
-                ax.set_title("Curva de entrenamiento (NN Clorofila — CEA)")
-                ax.grid(True); ax.legend(); fig_loss.tight_layout()
-
-        # ---- Modelo Ficocianina
-        if TARGET_PCY in df_cea.columns:
-            base_pcy = df_cea.dropna(subset=REQ_FEATURES + [TARGET_PCY]).reset_index(drop=True)
-            if not base_pcy.empty:
-                Xp = scaler.transform(base_pcy[REQ_FEATURES].values)
-                yp = base_pcy[TARGET_PCY].to_numpy()
-                X_tr, X_te, y_tr, y_te = train_test_split(Xp, yp, test_size=0.2, random_state=42)
-                TRAIN_Y_LOG1P_PCY = True
-                y_tr_t = np.log1p(y_tr) if TRAIN_Y_LOG1P_PCY else y_tr
-                y_te_t = np.log1p(y_te) if TRAIN_Y_LOG1P_PCY else y_te
-
-                model_pcy = build_regressor(X_tr.shape[1])
-                es = keras.callbacks.EarlyStopping(monitor="val_loss", patience=25, restore_best_weights=True, verbose=0)
-                rl = keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0)
-                hist_p = model_pcy.fit(X_tr, y_tr_t, validation_data=(X_te, y_te_t),
-                                       epochs=400, batch_size=32, verbose=0, callbacks=[es, rl])
-                TRAIN_MODEL_PCY = model_pcy
-
-                if fig_loss is None:
-                    fig_loss, ax = plt.subplots()
-                    ax.plot(hist_p.history["loss"], label="Pérdida entrenamiento (Ficocianina)")
-                    ax.plot(hist_p.history["val_loss"], label="Pérdida validación (Ficocianina)")
-                    ax.set_xlabel("Época"); ax.set_ylabel("Loss")
-                    ax.set_title("Curva de entrenamiento (NN Ficocianina — CEA)")
-                    ax.grid(True); ax.legend(); fig_loss.tight_layout()
-
-        if fig_loss is not None:
-            st.pyplot(fig_loss, use_container_width=True)
-        else:
-            st.info("No hay suficientes filas válidas para dibujar curvas de entrenamiento.")
+        TRAIN_MODEL = model
+        TRAIN_Y_LOG1P = Y_LOG1P
 
 with col_note:
     st.info(
         """
-        **Nota:** Se entrenan dos regresores (si hay datos): **Clorofila** y **Ficocianina**
-        usando pH, temperatura, conductividad, oxígeno disuelto y turbidez.
-        Matrices difusas:
-        - Clorofila: 4 clases fijas (2, 7, 40 μg/L).
-        - Ficocianina: 3 clases (por defecto 30 y 90 μg/L), ajustables.
+        **Nota breve:** La curva muestra cómo evoluciona la *pérdida* durante el entrenamiento
+        y validación del modelo de **regresión** que estima la clorofila (μg/L)
+        a partir de pH, temperatura, conductividad, oxígeno disuelto y turbidez (datos CEA + AMSA).
+        Una curva descendente y estable sugiere buen ajuste sin sobreajuste.
         """
     )
-
-# ------------------------- 3) Matrices difusas con CEA — CLOROFILA (4 clases) -------------------------
-st.subheader("🧩 Matrices de confusión **difusas** — Clorofila (CEA)")
-base_cls_chl = df_cea.dropna(subset=REQ_FEATURES + [TARGET_CHL]).reset_index(drop=True)
-
-if not base_cls_chl.empty:
-    # Datos y limpieza robusta
-    X_all_cls = base_cls_chl[REQ_FEATURES].to_numpy()
-    y_all_num = pd.to_numeric(base_cls_chl[TARGET_CHL], errors="coerce").to_numpy()
-    finite_mask = np.isfinite(y_all_num)
-    X_all_cls = X_all_cls[finite_mask]
-    y_all_num = np.clip(y_all_num[finite_mask], 0.0, None)
-
-    X_train, X_test, y_train_num, y_test_num = train_test_split(X_all_cls, y_all_num, test_size=0.20, random_state=42)
-    y_train_cls = pd.cut(y_train_num, bins=BINS_CHL, labels=LABELS_CHL, right=False, include_lowest=True)
-
-    # Sincroniza y valida clases (FIX: sin .to_numpy())
-    mask_ok = ~np.asarray(pd.isna(y_train_cls))
-    X_train, y_train_num, y_train_cls = X_train[mask_ok], y_train_num[mask_ok], y_train_cls[mask_ok]
-    if pd.Series(y_train_cls).nunique() < 2:
-        st.error("No hay variedad de clases suficiente para entrenar el clasificador de **Clorofila**.")
-        st.stop()
-
-    svm_clf = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
-                                                 class_weight="balanced", probability=True, random_state=42))
-    knn_clf = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights="distance"))
-
-    svm_clf.fit(X_train, y_train_cls)
-    knn_clf.fit(X_train, y_train_cls)
-
-    proba_svm = svm_clf.predict_proba(X_test)
-    proba_knn = knn_clf.predict_proba(X_test)
-
-    svm_classes = svm_clf.named_steps[list(svm_clf.named_steps.keys())[-1]].classes_
-    knn_classes = knn_clf.named_steps[list(knn_clf.named_steps.keys())[-1]].classes_
-
-    proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS_CHL)
-    proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS_CHL)
-
-    cm_svm_fuzzy = fuzzy_confusion_from_probs_4(y_test_num, proba_svm_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
-    cm_knn_fuzzy = fuzzy_confusion_from_probs_4(y_test_num, proba_knn_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS_CHL, "Matriz **difusa** — SVM (Clorofila — CEA)"),
-                  use_container_width=True)
-        st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
-    with c2:
-        st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS_CHL, "Matriz **difusa** — KNN (Clorofila — CEA)"),
-                  use_container_width=True)
-        st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
-
-    st.info("Las clases difusas para **Clorofila** usan umbrales fijos: 2, 7 y 40 μg/L.")
-else:
-    st.warning("No hay datos suficientes de **Clorofila** para matrices difusas.")
-
-# ------------------------- 4) Matrices difusas con CEA — FICOCIANINA (3 clases) -------------------------
-st.subheader("🧩 Matrices de confusión **difusas** — Ficocianina (CEA)")
-
-# Controles de umbrales y suavidad para Ficocianina (3 clases)
-with st.expander("⚙️ Umbrales y suavidad (Ficocianina)"):
-    col_a, col_b = st.columns(2)
-    cut1 = col_a.number_input("Umbral Bajo→Moderado (μg/L)", min_value=0.0, value=float(DEFAULT_PCY_CUT1), step=1.0)
-    cut2 = col_b.number_input("Umbral Moderado→Alto (μg/L)", min_value=float(max(cut1 + 0.1, 1.0)), value=float(DEFAULT_PCY_CUT2), step=1.0)
-
-    col_e1, col_e2 = st.columns(2)
-    eps1 = col_e1.number_input("ε alrededor del umbral 1", min_value=0.0, value=3.0, step=0.5)
-    eps2 = col_e2.number_input("ε alrededor del umbral 2", min_value=0.0, value=10.0, step=0.5)
-
-base_cls_pcy = df_cea.dropna(subset=REQ_FEATURES + [TARGET_PCY]).reset_index(drop=True)
-
-if not base_cls_pcy.empty:
-    # Datos y limpieza robusta
-    X_all_pcy = base_cls_pcy[REQ_FEATURES].to_numpy()
-    y_all_pcy_num = pd.to_numeric(base_cls_pcy[TARGET_PCY], errors="coerce").to_numpy()
-    finite_mask_p = np.isfinite(y_all_pcy_num)
-    X_all_pcy = X_all_pcy[finite_mask_p]
-    y_all_pcy_num = np.clip(y_all_pcy_num[finite_mask_p], 0.0, None)
-
-    # Bins 3 clases con tus cortes
-    bins_pcy = [0.0, float(cut1), float(cut2), np.inf]
-
-    X_train_p, X_test_p, y_train_num_p, y_test_num_p = train_test_split(
-        X_all_pcy, y_all_pcy_num, test_size=0.20, random_state=42
+    user_note = st.text_area(
+        "✍️ Puedes editar esta explicación:",
+        value="La pérdida de validación converge sin aumentar, indicando buen generalizado."
     )
-    y_train_cls_pcy = pd.cut(y_train_num_p, bins=bins_pcy, labels=LABELS_PCY, right=False, include_lowest=True)
 
-    # Sincroniza y valida (FIX: sin .to_numpy())
-    mask_ok_p = ~np.asarray(pd.isna(y_train_cls_pcy))
-    X_train_p, y_train_num_p, y_train_cls_pcy = X_train_p[mask_ok_p], y_train_num_p[mask_ok_p], y_train_cls_pcy[mask_ok_p]
-    if pd.Series(y_train_cls_pcy).nunique() < 2:
-        st.error("No hay variedad de clases suficiente para entrenar el clasificador de **Ficocianina**. Ajusta umbrales o revisa datos.")
-        st.stop()
+# ------------------------- 3) Matrices difusas (SVM y KNN) + Nota -------------------------
+st.subheader("🧩 Matrices de confusión **difusas** con CEA + AMSA (SVM y KNN)")
 
-    svm_clf_pcy = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
-                                                     class_weight="balanced", probability=True, random_state=42))
-    knn_clf_pcy = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights="distance"))
+X_train, X_test, y_train_num, y_test_num = train_test_split(X_all, y_all, test_size=0.20, random_state=42)
+y_train_cls = pd.cut(y_train_num, bins=BINS, labels=LABELS, right=False)
 
-    svm_clf_pcy.fit(X_train_p, y_train_cls_pcy)
-    knn_clf_pcy.fit(X_train_p, y_train_cls_pcy)
+svm_clf = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
+                                             class_weight="balanced", probability=True, random_state=42))
+knn_clf = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights="distance"))
 
-    proba_svm_pcy = svm_clf_pcy.predict_proba(X_test_p)
-    proba_knn_pcy = knn_clf_pcy.predict_proba(X_test_p)
+svm_clf.fit(X_train, y_train_cls)
+knn_clf.fit(X_train, y_train_cls)
 
-    svm_classes_pcy = svm_clf_pcy.named_steps[list(svm_clf_pcy.named_steps.keys())[-1]].classes_
-    knn_classes_pcy = knn_clf_pcy.named_steps[list(knn_clf_pcy.named_steps.keys())[-1]].classes_
+proba_svm = svm_clf.predict_proba(X_test)
+proba_knn = knn_clf.predict_proba(X_test)
 
-    proba_svm_pcy_al = align_proba_to_labels(proba_svm_pcy, svm_classes_pcy, LABELS_PCY)
-    proba_knn_pcy_al = align_proba_to_labels(proba_knn_pcy, knn_classes_pcy, LABELS_PCY)
+svm_classes = svm_clf.named_steps[list(svm_clf.named_steps.keys())[-1]].classes_
+knn_classes = knn_clf.named_steps[list(knn_clf.named_steps.keys())[-1]].classes_
 
-    cm_svm_fuzzy_pcy = fuzzy_confusion_from_probs_3(y_test_num_p, proba_svm_pcy_al, float(cut1), float(cut2), float(eps1), float(eps2))
-    cm_knn_fuzzy_pcy = fuzzy_confusion_from_probs_3(y_test_num_p, proba_knn_pcy_al, float(cut1), float(cut2), float(eps1), float(eps2))
+proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS)
+proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 
-    c3, c4 = st.columns(2)
-    with c3:
-        st.pyplot(
-            plot_confusion_matrix_pretty_float(
-                cm_svm_fuzzy_pcy, LABELS_PCY,
-                f"Matriz **difusa** — SVM (Ficocianina — CEA)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
-            ),
-            use_container_width=True
-        )
-        st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy_pcy.sum():.2f}")
-    with c4:
-        st.pyplot(
-            plot_confusion_matrix_pretty_float(
-                cm_knn_fuzzy_pcy, LABELS_PCY,
-                f"Matriz **difusa** — KNN (Ficocianina — CEA)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
-            ),
-            use_container_width=True
-        )
-        st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy_pcy.sum():.2f}")
+cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4)
+cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4)
 
-    st.info(
-        "Clases **Ficocianina**:\n"
-        f"- **Bajo riesgo**: < {cut1:.0f} μg/L (menor probabilidad de floración visible)\n"
-        f"- **Riesgo moderado**: {cut1:.0f}–{cut2:.0f} μg/L (monitoreo cercano)\n"
-        f"- **Alto riesgo**: ≥ {cut2:.0f} μg/L (alta probabilidad de floración)"
+c1, c2 = st.columns(2)
+with c1:
+    st.pyplot(
+        plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz **difusa** — SVM (CEA + AMSA)"),
+        use_container_width=True
     )
-else:
-    st.warning("No hay datos suficientes de **Ficocianina** para matrices difusas.")
+    st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
+with c2:
+    st.pyplot(
+        plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz **difusa** — KNN (CEA + AMSA)"),
+        use_container_width=True
+    )
+    st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
 
-# ------------------------- 5) Predicción (Clorofila y Ficocianina) con datos del estanque -------------------------
-st.subheader("🧪 Predicción (Clorofila y Ficocianina) con datos del estanque")
+st.info(
+    """
+    **Nota breve:** Estas matrices **difusas** consideran la cercanía a los umbrales (2, 7, 40 μg/L).
+    En lugar de contar aciertos/errores duros, reparten *peso* entre clases vecinas cuando la
+    clorofila real está cerca de un límite. Así, penalizan menos las confusiones razonables.
+    """
+)
+user_note2 = st.text_area("✍️ Puedes editar esta explicación de las matrices:",
+                          value="La matriz difusa suaviza el conteo cerca de 2, 7 y 40 μg/L.")
+
+# ------------------------- 4) Botón: Predecir con datos del estanque -------------------------
+st.subheader("🧪 Predicción y matrices (difusas) con datos del estanque")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
+    # 1) Ruta / carga del CSV del estanque
     DEFAULT_POND = DEFAULT_DIR_POND / "dataframe1.csv"
     pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
     pond_path = Path(pond_path_input)
 
     if not pond_path.exists():
-        st.warning("No encuentro **dataframe del estanque** en la ruta indicada. Sube el archivo:")
-        up2 = st.file_uploader("Sube CSV del estanque", type=["csv"], key="pond")
+        st.warning("No encuentro **dataframe1.csv** en la ruta indicada. Sube el archivo:")
+        up2 = st.file_uploader("Sube dataframe1.csv", type=["csv"], key="pond")
         if up2 is None:
             st.stop()
         df_pond = read_csv_robust(up2)
     else:
         df_pond = read_csv_robust(pond_path)
 
+    # 2) Normalización de encabezados y numéricos
     df_pond = normalize_columns(df_pond)
-    for c in REQ_FEATURES + [TARGET_CHL, TARGET_PCY]:
+    have_true = TARGET in df_pond.columns
+
+    for c in REQ_FEATURES + ([TARGET] if have_true else []):
         if c in df_pond.columns:
             df_pond[c] = to_numeric_smart(df_pond[c])
 
@@ -595,42 +452,80 @@ if clicked:
         st.error("El archivo del estanque no tiene filas válidas tras limpieza.")
         st.stop()
 
+    # 3) Matrices con SVM/KNN (probabilidades sobre X del estanque)
     Xp = df_pond[REQ_FEATURES].values
 
-    # --- Predicción Clorofila (continua)
-    yhat_chl = None
-    if TRAIN_SCALER is not None and TRAIN_MODEL_CHL is not None:
-        Xp_s = TRAIN_SCALER.transform(Xp)
-        y_pred_t = TRAIN_MODEL_CHL.predict(Xp_s, verbose=0).ravel()
-        yhat_chl = np.expm1(y_pred_t) if TRAIN_Y_LOG1P_CHL else y_pred_t
+    proba_svm_p = svm_clf.predict_proba(Xp)
+    proba_knn_p = knn_clf.predict_proba(Xp)
+    proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
+    proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
+
+    # 4) "Verdad" para la matriz difusa
+    if have_true:
+        y_true_p = pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy()
+        used_proxy = False
     else:
-        # Fallback con SVM de Clorofila si se entrenó
-        if 'svm_clf' in locals():
-            proba_svm_p = svm_clf.predict_proba(Xp)
-            proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS_CHL)
-            centers = np.array([1.0, 4.5, 20.0, 60.0])
-            yhat_chl = proba_svm_p_al @ centers
+        tm  = globals().get("TRAIN_MODEL", None)
+        ts  = globals().get("TRAIN_SCALER", None)
+        ylg = globals().get("TRAIN_Y_LOG1P", False)
+
+        if KERAS_OK and (tm is not None) and (ts is not None):
+            Xp_s = ts.transform(Xp)
+            y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
+            y_proxy  = np.expm1(y_pred_t) if ylg else y_pred_t
+            y_true_p = np.clip(y_proxy, 0.0, None)
+            used_proxy = True
         else:
-            yhat_chl = np.full(len(Xp), np.nan)
-    yhat_chl = np.clip(yhat_chl, 0.0, None) if yhat_chl is not None else None
+            # Si no hay red entrenada, aproximamos valores continuos con centros de clase
+            pred_cls = np.argmax(proba_svm_p_al, axis=1)
+            centers  = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados
+            y_true_p = centers[pred_cls]
+            used_proxy = True
 
-    # --- Predicción Ficocianina (continua)
-    yhat_pcy = None
-    if TRAIN_SCALER is not None and TRAIN_MODEL_PCY is not None:
-        Xp_s = TRAIN_SCALER.transform(Xp)
-        y_pred_t = TRAIN_MODEL_PCY.predict(Xp_s, verbose=0).ravel()
-        yhat_pcy = np.expm1(y_pred_t) if TRAIN_Y_LOG1P_PCY else y_pred_t
-        yhat_pcy = np.clip(yhat_pcy, 0.0, None)
+    # 5) Matrices difusas con esas "verdades"
+    cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4)
+    cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4)
+
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        st.pyplot(
+            plot_confusion_matrix_pretty_float(cm_svm_p, LABELS, "Matriz **difusa** — SVM (Estanque)"),
+            use_container_width=True
+        )
+        st.caption(f"Suma de pesos (SVM): {cm_svm_p.sum():.2f}")
+    with cc2:
+        st.pyplot(
+            plot_confusion_matrix_pretty_float(cm_knn_p, LABELS, "Matriz **difusa** — KNN (Estanque)"),
+            use_container_width=True
+        )
+        st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
+
+    if used_proxy and not have_true:
+        st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz difusa (no había columna de clorofila real).")
+
+    st.success("Listo. Matrices del estanque generadas.")
+
+    # ========= Predicciones continuas para exportar =========
+    tm  = globals().get("TRAIN_MODEL", None)
+    ts  = globals().get("TRAIN_SCALER", None)
+    ylg = globals().get("TRAIN_Y_LOG1P", False)
+
+    if KERAS_OK and (tm is not None) and (ts is not None):
+        Xp_s = ts.transform(Xp)
+        yhat_t = tm.predict(Xp_s, verbose=0).ravel()
+        yhat   = np.expm1(yhat_t) if ylg else yhat_t
     else:
-        yhat_pcy = np.full(len(Xp), np.nan)
+        centers = np.array([1.0, 4.5, 20.0, 60.0])
+        yhat = proba_svm_p_al @ centers
 
-    # --- Exportar
+    yhat = np.clip(yhat, 0.0, None)
+
+    # DataFrame a exportar
     df_pred_export = df_pond.copy()
-    df_pred_export["Clorofila_predicha (μg/L)"] = yhat_chl if yhat_chl is not None else np.nan
-    df_pred_export["Ficocianina_predicha (μg/L)"] = yhat_pcy
+    df_pred_export["Clorofila_predicha (μg/L)"] = yhat
 
+    # guardar para el botón de descarga
     st.session_state.df_pred_export = df_pred_export
-    st.success("✅ Predicciones generadas para el estanque (Clorofila y Ficocianina). Revisa y descarga abajo.")
 
 # ========= Botón inferior: Descargar CSV =========
 col_right = st.columns(2)[1]
@@ -640,7 +535,7 @@ with col_right:
         st.download_button(
             "⬇️ Descargar predicciones (.csv)",
             data=df_pred.to_csv(index=False).encode("utf-8"),
-            file_name="predicciones_estanque_CEA.csv",
+            file_name="predicciones_estanque.csv",
             mime="text/csv",
             use_container_width=True,
         )
