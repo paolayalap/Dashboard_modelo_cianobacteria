@@ -546,6 +546,14 @@ if clicked:
         yhat = proba_svm_p_al @ centers
 
     yhat = np.clip(yhat, 0.0, None)
+    
+    # DataFrame a exportar  ⬇️  (colócalo aquí)
+    df_pred_export = df_pond.copy()
+    df_pred_export["Clorofila_predicha (μg/L)"] = yhat
+    
+    # guardar para el botón de descarga
+    st.session_state.df_pred_export = df_pred_export
+
 
     # DataFrame a exportar
     df_pred_export = df_pond.copy()
