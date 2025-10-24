@@ -204,11 +204,11 @@ def fuzzy_confusion_from_probs_4(y_true_values, pred_proba, cut1, cut2, cut3, ep
 
 # 3 clases (Ficocianina)
 def memberships_3classes(x, cut1, cut2, eps1, eps2):
-    # Clase 0: bajo (0..cut1)
+    # 0: bajo (0..cut1)
     m0 = _trapezoid(x, 0.0, 0.0, cut1 - eps1, cut1 + eps1)
-    # Clase 1: moderado (cut1..cut2)
+    # 1: moderado (cut1..cut2)
     m1 = _trapezoid(x, cut1 - eps1, cut1 + eps1, cut2 - eps2, cut2 + eps2)
-    # Clase 2: alto (>=cut2)
+    # 2: alto (>=cut2)
     m2 = _right_shoulder(x, cut2 - eps2, cut2 + eps2)
     v = np.array([m0, m1, m2], dtype=float)
     s = v.sum()
@@ -248,8 +248,10 @@ def align_proba_to_labels(proba: np.ndarray, classes_pred, labels_order):
     n = proba.shape[0]; k = len(labels_order)
     out = np.zeros((n, k), dtype=float)
     for j, lab in enumerate(labels_order):
-        if lab in idx_map: out[:, j] = proba[:, idx_map[lab]]
-        else: out[:, j] = 0.0
+        if lab in idx_map:
+            out[:, j] = proba[:, idx_map[lab]]
+        else:
+            out[:, j] = 0.0
     row_sums = out.sum(axis=1, keepdims=True)
     np.divide(out, row_sums, out=out, where=row_sums > 0)
     return out
@@ -439,8 +441,8 @@ if not base_cls_chl.empty:
     X_train, X_test, y_train_num, y_test_num = train_test_split(X_all_cls, y_all_num, test_size=0.20, random_state=42)
     y_train_cls = pd.cut(y_train_num, bins=BINS_CHL, labels=LABELS_CHL, right=False, include_lowest=True)
 
-    # Sincroniza y valida clases
-    mask_ok = ~pd.isna(y_train_cls).to_numpy()
+    # Sincroniza y valida clases (FIX: sin .to_numpy())
+    mask_ok = ~np.asarray(pd.isna(y_train_cls))
     X_train, y_train_num, y_train_cls = X_train[mask_ok], y_train_num[mask_ok], y_train_cls[mask_ok]
     if pd.Series(y_train_cls).nunique() < 2:
         st.error("No hay variedad de clases suficiente para entrenar el clasificador de **Clorofila**.")
@@ -510,8 +512,8 @@ if not base_cls_pcy.empty:
     )
     y_train_cls_pcy = pd.cut(y_train_num_p, bins=bins_pcy, labels=LABELS_PCY, right=False, include_lowest=True)
 
-    # Sincroniza y valida
-    mask_ok_p = ~pd.isna(y_train_cls_pcy).to_numpy()
+    # Sincroniza y valida (FIX: sin .to_numpy())
+    mask_ok_p = ~np.asarray(pd.isna(y_train_cls_pcy))
     X_train_p, y_train_num_p, y_train_cls_pcy = X_train_p[mask_ok_p], y_train_num_p[mask_ok_p], y_train_cls_pcy[mask_ok_p]
     if pd.Series(y_train_cls_pcy).nunique() < 2:
         st.error("No hay variedad de clases suficiente para entrenar el clasificador de **Ficocianina**. Ajusta umbrales o revisa datos.")
