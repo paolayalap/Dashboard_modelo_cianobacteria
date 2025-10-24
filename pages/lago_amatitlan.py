@@ -281,7 +281,7 @@ X_all = base[REQ_FEATURES].values
 y_all = base[TARGET].values
 
 # ------------------------- 2) Curva de entrenamiento + Nota -------------------------
-st.subheader("📈 Curva de entrenamiento (izquierda) y nota (derecha)")
+st.subheader("📈 Análisis del entrenamiento del modelo")
 col_curve, col_note = st.columns([2, 1])
 
 with col_curve:
@@ -292,7 +292,7 @@ with col_curve:
         fig_loss, ax = plt.subplots()
         ax.plot(losses, label="Pérdida entrenamiento")
         ax.plot(val_losses, label="Pérdida validación")
-        ax.set_xlabel("Época"); ax.set_ylabel("Loss"); ax.set_title("Curva de entrenamiento (simulada)")
+        ax.set_xlabel("Época"); ax.set_ylabel("Pérdida"); ax.set_title("Curva de entrenamiento")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
         st.pyplot(fig_loss, use_container_width=True)
         TRAIN_SCALER = None
@@ -344,7 +344,7 @@ with col_curve:
         fig_loss, ax = plt.subplots()
         ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
         ax.plot(hist.history["val_loss"], label="Pérdida validación")
-        ax.set_xlabel("Época"); ax.set_ylabel("Loss")
+        ax.set_xlabel("Época"); ax.set_ylabel("Pérdida")
         ax.set_title("Curva de entrenamiento (Regresión NN sobre AMSA)")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
         # ax.set_yscale("log")  # <- opcional
@@ -358,19 +358,19 @@ with col_curve:
 with col_note:
     st.info(
         """
-        **Nota breve:** La curva muestra cómo evoluciona la *pérdida* durante el entrenamiento
+        **Nota:** La curva muestra cómo evoluciona la *pérdida* durante el entrenamiento
         y validación del modelo de **regresión** que estima la clorofila (μg/L)
         a partir de pH, temperatura, conductividad, oxígeno disuelto y turbidez (datos AMSA).
         Una curva descendente y estable sugiere buen ajuste sin sobreajuste.
         """
     )
-    user_note = st.text_area(
-        "✍️ Puedes editar esta explicación:",
-        value="La pérdida de validación converge sin aumentar, indicando buen generalizado."
-    )
+    #user_note = st.text_area(
+    #    "✍️ Puedes editar esta explicación:",
+    #    value="La pérdida de validación converge sin aumentar, indicando buen generalizado."
+    #)
 
 # ------------------------- 3) Matrices difusas (SVM y KNN) + Nota -------------------------
-st.subheader("🧩 Matrices de confusión **difusas** con AMSA (SVM y KNN)")
+st.subheader("🧩 Matrices clasificatorias con datos de AMSA")
 
 X_train, X_test, y_train_num, y_test_num = train_test_split(X_all, y_all, test_size=0.20, random_state=42)
 y_train_cls = pd.cut(y_train_num, bins=BINS, labels=LABELS, right=False)
@@ -396,26 +396,26 @@ cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4)
 
 c1, c2 = st.columns(2)
 with c1:
-    st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz **difusa** — SVM (AMSA)"),
+    st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz de confusión con lógica difusa — SVM (AMSA)"),
               use_container_width=True)
     st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
 with c2:
-    st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz **difusa** — KNN (AMSA)"),
+    st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — KNN (AMSA)"),
               use_container_width=True)
     st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
 
 st.info(
     """
-    **Nota breve:** Estas matrices **difusas** consideran la cercanía a los umbrales (2, 7, 40 μg/L).
+    **Nota:** Estas matrices **difusas** consideran la cercanía a los umbrales (2, 7, 40 μg/L).
     En lugar de contar aciertos/errores duros, reparten *peso* entre clases vecinas cuando la
     clorofila real está cerca de un límite. Así, penalizan menos las confusiones razonables.
     """
 )
-user_note2 = st.text_area("✍️ Puedes editar esta explicación de las matrices:",
-                          value="La matriz difusa suaviza el conteo cerca de 2, 7 y 40 μg/L.")
+#user_note2 = st.text_area("✍️ Puedes editar esta explicación de las matrices:",
+#                         value="La matriz difusa suaviza el conteo cerca de 2, 7 y 40 μg/L.")
 
 # ------------------------- 4) Botón: Predecir con datos del estanque -------------------------
-st.subheader("🧪 Predicción y matrices (difusas) con datos del estanque")
+st.subheader("🧪 Predicción y matrices con datos del estanque")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
@@ -482,19 +482,19 @@ if clicked:
     cc1, cc2 = st.columns(2)
     with cc1:
         st.pyplot(
-            plot_confusion_matrix_pretty_float(cm_svm_p, LABELS, "Matriz **difusa** — SVM (Estanque)"),
+            plot_confusion_matrix_pretty_float(cm_svm_p, LABELS, "Matriz de confusión con lógica difusa — SVM (Estanque)"),
             use_container_width=True
         )
         st.caption(f"Suma de pesos (SVM): {cm_svm_p.sum():.2f}")
     with cc2:
         st.pyplot(
-            plot_confusion_matrix_pretty_float(cm_knn_p, LABELS, "Matriz **difusa** — KNN (Estanque)"),
+            plot_confusion_matrix_pretty_float(cm_knn_p, LABELS, "Matriz de confusión con lógica difusa — KNN (Estanque)"),
             use_container_width=True
         )
         st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
 
     if used_proxy and not have_true:
-        st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz difusa (no había columna de clorofila real).")
+        st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
 
     st.success("Listo. Matrices del estanque generadas.")
 
