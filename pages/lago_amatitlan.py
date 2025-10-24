@@ -37,32 +37,6 @@ TRAIN_Y_LOG1P = False
 if "df_pred_export" not in st.session_state:
     st.session_state.df_pred_export = None
 
-
-# --- Botón Volver -> streamlit.py ---
-def ir_a_streamlit_py():
-    """
-    Intenta abrir el archivo `streamlit.py` usando st.switch_page.
-    Prueba ruta raíz y dentro de /pages. Requiere Streamlit >= 1.27.
-    """
-    destinos = (
-        "streamlit.py",          # raíz del proyecto
-        "pages/streamlit.py",    # dentro de /pages
-        "./streamlit.py",        # variantes relativas
-        "./pages/streamlit.py",
-    )
-    for d in destinos:
-        try:
-            st.switch_page(d)
-            return
-        except Exception:
-            pass
-    st.error(
-        "No pude abrir **streamlit.py** con `st.switch_page`. "
-        "Verifica que el archivo exista y que el nombre/path coincidan exactamente."
-    )
-
-
-
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
@@ -270,7 +244,6 @@ df_amsa = normalize_columns(df_amsa)
 
 # Renombrado **silencioso** de Oxígeno Disuelto si falta el nombre canónico
 if "Oxígeno Disuelto (mg/L)" not in df_amsa.columns:
-    # Buscar cualquier columna que parezca oxígeno disuelto (robusto a tildes/mayúsculas)
     cands = []
     for col in df_amsa.columns:
         kc = _canon(col)
@@ -280,7 +253,6 @@ if "Oxígeno Disuelto (mg/L)" not in df_amsa.columns:
             cands.append(col)
     if cands:
         df_amsa.rename(columns={cands[0]: "Oxígeno Disuelto (mg/L)"}, inplace=True)
-    # Si no hay candidatas, no molestamos al usuario: se verá el error solo en la validación final.
 
 # Vista previa (10 filas) + expander
 st.markdown("**Vista previa (10 primeras filas):**")
@@ -293,7 +265,7 @@ for c in REQ_FEATURES + [TARGET]:
     if c in df_amsa.columns:
         df_amsa[c] = to_numeric_smart(df_amsa[c])
 
-# Validación de columnas (si falta algo, mostramos el error normal aquí)
+# Validación de columnas
 faltantes = [c for c in REQ_FEATURES + [TARGET] if c not in df_amsa.columns]
 if faltantes:
     st.error(f"Faltan columnas requeridas en AMSA: {faltantes}. Renombra tus columnas o ajusta el mapa en el script.")
@@ -397,7 +369,6 @@ with col_note:
         value="La pérdida de validación converge sin aumentar, indicando buen generalizado."
     )
 
-
 # ------------------------- 3) Matrices difusas (SVM y KNN) + Nota -------------------------
 st.subheader("🧩 Matrices de confusión **difusas** con AMSA (SVM y KNN)")
 
@@ -483,10 +454,7 @@ if clicked:
     proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
     proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
 
-    # 4) "Verdad" para la matriz difusa:
-    #    - si el estanque trae clorofila real, úsala
-    #    - si no, intenta la red entrenada en la sección 2 (con des-transformación si log1p)
-    #    - si tampoco hay red, usa centroides por clase (fallback)
+    # 4) "Verdad" para la matriz difusa
     if have_true:
         y_true_p = pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy()
         used_proxy = False
@@ -503,7 +471,7 @@ if clicked:
             used_proxy = True
         else:
             pred_cls = np.argmax(proba_svm_p_al, axis=1)
-            centers  = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados de rangos
+            centers  = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados
             y_true_p = centers[pred_cls]
             used_proxy = True
 
@@ -529,9 +497,8 @@ if clicked:
         st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz difusa (no había columna de clorofila real).")
 
     st.success("Listo. Matrices del estanque generadas.")
+
     # ========= Predicciones continuas para exportar =========
-    # Intentamos usar la NN de regresión entrenada (sección 2).
-    # Si no existe, usamos una estimación por SVM (valor esperado con centroides).
     tm  = globals().get("TRAIN_MODEL", None)
     ts  = globals().get("TRAIN_SCALER", None)
     ylg = globals().get("TRAIN_Y_LOG1P", False)
@@ -541,56 +508,26 @@ if clicked:
         yhat_t = tm.predict(Xp_s, verbose=0).ravel()
         yhat   = np.expm1(yhat_t) if ylg else yhat_t
     else:
-        # Esperanza de clorofila a partir de probabilidades SVM y centroides de cada rango
         centers = np.array([1.0, 4.5, 20.0, 60.0])
         yhat = proba_svm_p_al @ centers
 
     yhat = np.clip(yhat, 0.0, None)
-    
-    # DataFrame a exportar  ⬇️  (colócalo aquí)
-    df_pred_export = df_pond.copy()
-    df_pred_export["Clorofila_predicha (μg/L)"] = yhat
-    
-    # guardar para el botón de descarga
-    st.session_state.df_pred_export = df_pred_export
-
 
     # DataFrame a exportar
     df_pred_export = df_pond.copy()
     df_pred_export["Clorofila_predicha (μg/L)"] = yhat
 
-# ========= Botones inferiores: Volver (izq) / Descargar CSV (der) =========
-from pathlib import Path
+    # guardar para el botón de descarga
+    st.session_state.df_pred_export = df_pred_export
 
-# ===== Botones inferiores =====
-col_left, col_right = st.columns(2)
-
-with col_left:
-    # Candidatos posibles para tu página principal fuera de /pages
-    candidatos = [
-        "streamlit.py",   # el que tú quieres
-        "Home.py",
-        "Inicio.py",
-        "main.py",
-        "app.py",
-    ]
-    destino = next((c for c in candidatos if Path(c).exists()), None)
-
-    if destino:
-        # Navegación robusta: usa page_link si existe el archivo
-        st.page_link(destino, label="⬅️ Volver", icon=":material/arrow_back:", use_container_width=True)
-    else:
-        st.button("⬅️ Volver", use_container_width=True, disabled=True)
-        st.caption("No encontré una página raíz como 'streamlit.py'. "
-                   "Asegúrate de ejecutar `streamlit run streamlit.py` desde el directorio que lo contiene.")
-
+# ========= Botón inferior: Descargar CSV =========
+col_right = st.columns(2)[1]
 with col_right:
-    # Botón de descarga: solo si ya hay predicciones en sesión
-    if "df_pred_export" in st.session_state:
-        csv_bytes = st.session_state.df_pred_export.to_csv(index=False).encode("utf-8")
+    df_pred = st.session_state.get("df_pred_export")
+    if isinstance(df_pred, pd.DataFrame) and not df_pred.empty:
         st.download_button(
             "⬇️ Descargar predicciones (.csv)",
-            data=csv_bytes,
+            data=df_pred.to_csv(index=False).encode("utf-8"),
             file_name="predicciones_estanque.csv",
             mime="text/csv",
             use_container_width=True,
@@ -603,4 +540,3 @@ with col_right:
             help="Primero presiona 'Predecir con datos del estanque'.",
             use_container_width=True,
         )
-
