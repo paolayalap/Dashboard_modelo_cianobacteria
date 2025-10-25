@@ -9,12 +9,30 @@ st.set_page_config(page_title="Selector de Modelo", page_icon="🧪", layout="wi
 st.title("🧪 Modelos para predecir cianobacteria")
 st.caption("Tablero complementario del Trabajo de Graduación de Paola Andrea Ayala Pineda.")
 
-st.write("Actualmente, la detección de cianobacterias en cuerpos de agua en lagos como lo son el de de Amatitlán y Atitlán, se realiza por medio de un análisis de laboratorio. Sin embargo, este proceso puede ser tardado, costoso y necesita de personal capacitado para llevarlo a cabo.") 
+left, right = st.columns([1, 2], gap="medium")
 
-st.write("Es por eso que, mediante el uso de métodos de aprendizaje automático, a continuación se muestran modelos que están entrenados con distintos cuerpos de agua los cuales tienen diferencias en su calidad de agua para tener un método de detección de cianobacteria más amplio, económico y eficaz.") 
-
-st.write("El cuerpo de agua que se utilizó para la validación de los modelos fue el estanque del jardín botánico de la Universidad del Valle de Guatemala. ")
-st.write(" ")
+with right:
+    st.markdown(
+        """
+        <div style="text-align: justify;">
+            <p>
+            Actualmente, la detección de cianobacterias en lagos como Amatitlán y Atitlán 
+            depende de análisis de laboratorio. Aunque son confiables, requieren tiempo, 
+            recursos y personal especializado.
+            </p>
+            <p>
+            Este tablero presenta modelos de aprendizaje automático entrenados con datos 
+            de distintos cuerpos de agua para ofrecer una detección más oportuna, 
+            económica y escalable.
+            </p>
+            <p>
+            La validación de los modelos se realizó en el estanque del Jardín Botánico 
+            de la Universidad del Valle de Guatemala.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 st.markdown("### Presiona un botón para elegir el modelo que desees analizar.")
 
