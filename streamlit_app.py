@@ -33,10 +33,16 @@ with left:
         """,
         unsafe_allow_html=True
     )
-with right:
-    # Imagen desde la carpeta 'imagenes'
-    st.image("imagenes/estanque.png", caption="Estanque UVG", use_container_width=True)
 
+st.markdown(
+        """
+        <img src="imagenes/estanque.png"
+             alt="Estanque UVG"
+             style="width:100%; height:260px; object-fit:cover; border-radius:14px;">
+        <div style="text-align:center; font-size:0.9rem; color:#666;">Estanque UVG</div>
+        """,
+        unsafe_allow_html=True
+    )
 
 st.markdown("### Presiona un botón para elegir el modelo que desees analizar.")
 
