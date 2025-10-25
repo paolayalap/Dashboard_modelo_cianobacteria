@@ -40,7 +40,7 @@ if "df_pred_export" not in st.session_state:
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
-st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Luego se muestran matrices difusas para SVM y KNN. Finalmente, puedes evaluar con `dataframe1.csv` del estanque.")
+st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Luego se muestran matrices difusas para SVM y KNN. Finalmente, puedes evaluar con `dataframe.csv` del estanque.")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
@@ -420,13 +420,13 @@ st.subheader("🧪 Predicción y matrices con datos del estanque")
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
     # 1) Ruta / carga del CSV del estanque
-    DEFAULT_POND = DEFAULT_DIR_POND / "dataframe1.csv"
+    DEFAULT_POND = DEFAULT_DIR_POND / "dataframe.csv"
     pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
     pond_path = Path(pond_path_input)
 
     if not pond_path.exists():
-        st.warning("No encuentro **dataframe1.csv** en la ruta indicada. Sube el archivo:")
-        up2 = st.file_uploader("Sube dataframe1.csv", type=["csv"], key="pond")
+        st.warning("No encuentro **dataframe.csv** en la ruta indicada. Sube el archivo:")
+        up2 = st.file_uploader("Sube dataframe.csv", type=["csv"], key="pond")
         if up2 is None:
             st.stop()
         df_pond = read_csv_robust(up2)
