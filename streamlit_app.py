@@ -55,7 +55,7 @@ c1, c2, c3 = st.columns(3, gap="large")
 
 with c1:
     if st.button(
-        "**Modelo 1**",
+        "Modelo 1",
         help="Predice clorofila con datos de Amatitlán.",
         use_container_width=True
     ):
@@ -63,7 +63,7 @@ with c1:
 
 with c2:
     if st.button(
-        "**Modelo 2**",
+        "Modelo 2",
         help="Predice clorofila y ficocianina con datos de Atitlán.",
         use_container_width=True
     ):
@@ -71,7 +71,7 @@ with c2:
 
 with c3:
     if st.button(
-        "**Modelo 3**",
+        "Modelo 3",
         help="Predice clorofila con datos de Amatitlán y Atitlán.",
         use_container_width=True
     ):
