@@ -39,7 +39,7 @@ with right:
     st.markdown(
     """
     <img src="imagenes/estanque.png"
-         style="width:100%; height:260px; object-fit:cover; border-radius:14px;"
+         style="width:90%; height:160px; object-fit:cover; border-radius:14px;"
          alt="Estanque UVG">
     """,
     unsafe_allow_html=True
