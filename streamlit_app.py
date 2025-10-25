@@ -4,14 +4,16 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 st.title("🧪 Modelos para predecir cianobacteria")
-st.markdown("Tablero complementario para el trabajo de graduación titulado:")
-st.markdown("*Diseño de un sistema de detección de cianobacteria en cuerpos de agua por medio de aprendizaje automático.*")
-st.markdown("Realizado por: Paola Andrea Ayala Pineda.")
+st.caption("Tablero complementario para el trabajo de graduación titulado:")
+st.caption("*Diseño de un sistema de detección de cianobacteria en cuerpos de agua por medio de aprendizaje automático.*")
+st.caption("Realizado por: Paola Andrea Ayala Pineda.")
 
+#-------------- Párrafo descriptivo del proyecto ---------------
+st.set_page_config(layout="wide")
 col_img, col_txt = st.columns([1, 2], gap="medium")
 
 with col_img:
-    st.image("imagenes/estanque.jpg", use_container_width=True)
+    st.image("imagenes/estanque1.jpeg", use_container_width=True)
     # st.caption("Estanque del jardín Botánico de la UVG")
 
 with col_txt:
