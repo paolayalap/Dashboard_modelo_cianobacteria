@@ -11,13 +11,13 @@ st.caption("Tablero complementario del Trabajo de Graduación de Paola Andrea Ay
 
 st.write("Actualmente, la detección de cianobacterias en cuerpos de agua en lagos como lo son 
 el de de Amatitlán y Atitlán, se realiza por medio de un análisis de laboratorio. Sin embargo, 
-este proceso puede ser tardado, costoso y necesita de personal capacitado para llevarlo a cabo. 
+este proceso puede ser tardado, costoso y necesita de personal capacitado para llevarlo a cabo.") 
 
-Es por eso que, mediante el uso de métodos de aprendizaje automático, a continuación se muestran 
+st.write("Es por eso que, mediante el uso de métodos de aprendizaje automático, a continuación se muestran 
 modelos que están entrenados con distintos cuerpos de agua los cuales tienen diferencias en su 
-calidad de agua para tener un método de detección de cianobacteria más amplio, económico y eficaz. 
+calidad de agua para tener un método de detección de cianobacteria más amplio, económico y eficaz.") 
 
-El cuerpo de agua que se utilizó para la validación de los modelos fue el estanque del jardín 
+sr.write("El cuerpo de agua que se utilizó para la validación de los modelos fue el estanque del jardín 
 botánico de la Universidad del Valle de Guatemala. ")
 
 
