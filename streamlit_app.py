@@ -22,7 +22,7 @@ col_img, col_txt = st.columns([1, 2], gap="medium")
 with col_img:
     # URL RAW correcta (no usar el enlace 'blob')
     st.image(
-        "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/imagenes/estanque1.jpeg",
+        "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/imagenes/estanque1.jpg",
         use_container_width=True
     )
     # st.caption("Estanque del Jardín Botánico de la UVG")
