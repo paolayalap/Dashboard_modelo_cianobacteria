@@ -477,7 +477,7 @@ else:
     st.warning("Ficocianina (CEA): no hay datos válidos.")
 
 # ------------------------- 4) Estanque: Predicción + MATRICES DIFUSAS (usando verdad real o proxy) -------------------------
-st.subheader("🧪 Estanque — Predicción y Matrices de Confusión **Difusas** (con verdad real o proxy)")
+st.subheader("🧪 Estanque — Predicción y Matrices")
 
 clicked = st.button("🔮 Predecir con datos del estanque y calcular matrices")
 if clicked:
