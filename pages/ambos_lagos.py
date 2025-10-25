@@ -426,13 +426,13 @@ st.subheader("🧪 Predicción y matrices (difusas) con datos del estanque")
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
     # 1) Ruta / carga del CSV del estanque
-    DEFAULT_POND = DEFAULT_DIR_POND / "dataframe1.csv"
+    DEFAULT_POND = DEFAULT_DIR_POND / "dataframe.csv"
     pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
     pond_path = Path(pond_path_input)
 
     if not pond_path.exists():
-        st.warning("No encuentro **dataframe1.csv** en la ruta indicada. Sube el archivo:")
-        up2 = st.file_uploader("Sube dataframe1.csv", type=["csv"], key="pond")
+        st.warning("No encuentro **dataframe.csv** en la ruta indicada. Sube el archivo:")
+        up2 = st.file_uploader("Sube dataframe.csv", type=["csv"], key="pond")
         if up2 is None:
             st.stop()
         df_pond = read_csv_robust(up2)
