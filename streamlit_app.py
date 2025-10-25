@@ -17,31 +17,31 @@ st.caption("*Diseño de un sistema de detección de cianobacteria en cuerpos de 
 st.caption("Realizado por: Paola Andrea Ayala Pineda.")
 
 # ------------------ Portada con imagen + texto ------------------
-col_img, col_txt = st.columns([1, 2], gap="medium")
+#col_img, col_txt = st.columns([1, 2], gap="medium")
 
-with col_img:
+#with col_img:
     # URL RAW correcta (no usar el enlace 'blob')
-    st.image(
-        "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/imagenes/estanque1.jpg",
-        use_container_width=True
-    )
+#    st.image(
+#        "https://raw.githubusercontent.com/paolayalap/Dashboard_modelo_cianobacteria/master/imagenes/estanque1.jpg",
+ #       use_container_width=True
+  #  )
     # st.caption("Estanque del Jardín Botánico de la UVG")
 
-with col_txt:
-    texto = """
-    Actualmente, la detección de cianobacterias en cuerpos de agua en lagos como 
-    Amatitlán y Atitlán se realiza por medio de un análisis de laboratorio. 
-    Sin embargo, este proceso puede ser tardado, costoso y requiere personal capacitado.
+#with col_txt:
+ #   texto = """
+  #  Actualmente, la detección de cianobacterias en cuerpos de agua en lagos como 
+   # Amatitlán y Atitlán se realiza por medio de un análisis de laboratorio. 
+    #Sin embargo, este proceso puede ser tardado, costoso y requiere personal capacitado.
 
-    Por eso, mediante aprendizaje automático se entrenan modelos con distintos 
-    cuerpos de agua para lograr un método de detección más amplio, económico y eficaz.
+    #Por eso, mediante aprendizaje automático se entrenan modelos con distintos 
+    #cuerpos de agua para lograr un método de detección más amplio, económico y eficaz.
 
-    El cuerpo de agua usado para validar los modelos fue el estanque del Jardín 
-    Botánico de la Universidad del Valle de Guatemala.
+    #El cuerpo de agua usado para validar los modelos fue el estanque del Jardín 
+    #Botánico de la Universidad del Valle de Guatemala.
     """
-    st.markdown(f'<div style="text-align: justify;">{texto}</div>', unsafe_allow_html=True)
+    #st.markdown(f'<div style="text-align: justify;">{texto}</div>', unsafe_allow_html=True)
 
-st.write("Presiona un botón para elegir el modelo que desees analizar.")
+#st.write("Presiona un botón para elegir el modelo que desees analizar.")
 
 # ------------------ Navegación entre páginas ------------------
 def go(page_stub: str):
