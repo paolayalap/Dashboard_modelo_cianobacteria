@@ -7,8 +7,21 @@ import streamlit as st
 st.set_page_config(page_title="Selector de Modelo", page_icon="🧪", layout="wide")
 
 st.title("🧪 Modelos para predecir cianobacteria")
-st.caption("Tablero complementario del TG de Paola Andrea Ayala Pineda.")
-st.write("Presiona un botón para elegir el modelo que desees analizar.")
+st.caption("Tablero complementario del Trabajo de Graduación de Paola Andrea Ayala Pineda.")
+
+st.write("Actualmente, la detección de cianobacterias en cuerpos de agua en lagos como lo son 
+el de de Amatitlán y Atitlán, se realiza por medio de un análisis de laboratorio. Sin embargo, 
+este proceso puede ser tardado, costoso y necesita de personal capacitado para llevarlo a cabo. 
+
+Es por eso que, mediante el uso de métodos de aprendizaje automático, a continuación se muestran 
+modelos que están entrenados con distintos cuerpos de agua los cuales tienen diferencias en su 
+calidad de agua para tener un método de detección de cianobacteria más amplio, económico y eficaz. 
+
+El cuerpo de agua que se utilizó para la validación de los modelos fue el estanque del jardín 
+botánico de la Universidad del Valle de Guatemala. ")
+
+
+st.write("***Presiona un botón para elegir el modelo que desees analizar.")
 
 # --------- Navegación robusta ----------
 def go(page_stub: str):
@@ -39,13 +52,13 @@ def go(page_stub: str):
 c1, c2, c3 = st.columns(3, gap="large")
 
 with c1:
-    if st.button("Modelo 1", use_container_width=True):
+    if st.button("**Modelo 1**", help="Predice clorofila con datos del lago de Amatitlán", use_container_width=True):
         go("lago_amatitlan")    # <— stub correcto
 
 with c2:
-    if st.button("Modelo 2", use_container_width=True):
+    if st.button("**Modelo 2**", help="Predice clorofila y ficocianina con datos del lago de Atitlán", use_container_width=True):
         go("lago_atitlan")      # <— stub correcto
 
 with c3:
-    if st.button("Modelo 3", use_container_width=True):
+    if st.button("**Modelo 3**", help="Predice clorofila con datos del lago de Amatitlán y de Atitlán", use_container_width=True):
         go("ambos_lagos")       # <— stub correcto
