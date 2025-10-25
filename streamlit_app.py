@@ -61,6 +61,8 @@ def go(page_stub: str):
             "Asegúrate de que exista 'pages/" + page_stub + ".py' y que el nombre coincida."
         )
 
+st.write("     ")
+
 # --------- Botones en columnas ----------
 c1, c2, c3 = st.columns(3, gap="large")
 
