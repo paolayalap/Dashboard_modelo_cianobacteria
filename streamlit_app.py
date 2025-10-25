@@ -11,7 +11,7 @@ st.caption("Tablero complementario del Trabajo de Graduación de Paola Andrea Ay
 
 left, right = st.columns([1, 2], gap="medium")
 
-with right:
+with left:
     st.markdown(
         """
         <div style="text-align: justify;">
