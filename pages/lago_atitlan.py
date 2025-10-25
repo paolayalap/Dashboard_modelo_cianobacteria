@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit: CEA — Clorofila & Ficocianina
+# Streamlit: CEA — Clorofila y Ficocianina
 # - Entrena con DATOS CEA.csv
 # - Predice Clorofila y Ficocianina para el estanque
 # - Matrices de confusión DIFUSAS:
@@ -44,9 +44,9 @@ if "df_pred_export" not in st.session_state:
     st.session_state.df_pred_export = None
 
 # ------------------------- Config UI -------------------------
-st.set_page_config(page_title="CEA — Clorofila & Ficocianina", layout="wide")
-st.title("🧪 CEA — Entrenamiento y Predicción (Clorofila & Ficocianina)")
-st.caption("Se entrena con **DATOS CEA.csv**. Matrices **difusas** para Clorofila (4 clases) y Ficocianina (3 clases) y predicción sobre datos del estanque.")
+st.set_page_config(page_title="CEA — Clorofila y Ficocianina", layout="wide")
+st.title("🧪 CEA — Entrenamiento y Predicción (Clorofila y Ficocianina)")
+st.caption("Se entrena con **DATOS CEA.csv**. Matrices para Clorofila (4 clases) y Ficocianina (3 clases) y predicción sobre datos del estanque.")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
@@ -427,7 +427,7 @@ with col_note:
     )
 
 # ------------------------- 3) Matrices difusas con CEA — CLOROFILA (4 clases) -------------------------
-st.subheader("🧩 Matrices de confusión con lógica difusa — Clorofila (CEA)")
+st.subheader("🧩 Matrices con datos de Clorofila (CEA)")
 base_cls_chl = df_cea.dropna(subset=REQ_FEATURES + [TARGET_CHL]).reset_index(drop=True)
 
 if not base_cls_chl.empty:
@@ -482,7 +482,7 @@ else:
     st.warning("No hay datos suficientes de **Clorofila** para matrices difusas.")
 
 # ------------------------- 4) Matrices difusas con CEA — FICOCIANINA (3 clases) -------------------------
-st.subheader("🧩 Matrices clasificatorias con datos del CEA — Ficocianina")
+st.subheader("🧩 Matrices con datos de Ficocianina (CEA)")
 
 # Controles de umbrales y suavidad para Ficocianina (3 clases)
 with st.expander("⚙️ Umbrales y suavidad (Ficocianina)"):
