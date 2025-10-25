@@ -238,7 +238,7 @@ def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.2f}"):
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             ax.text(j, i, fmt.format(cm[i, j]), va="center", ha="center", fontsize=14, fontweight="bold")
-    ax.set_xlabel("Etiqueta predicha"); ax.set_ylabel("Etiqueta real (difusa)")
+    ax.set_xlabel("Etiqueta predicha"); ax.set_ylabel("Etiqueta real")
     fig.tight_layout()
     return fig
 
@@ -329,7 +329,7 @@ with col_curve:
         fig_loss, ax = plt.subplots()
         ax.plot(losses, label="Pérdida entrenamiento")
         ax.plot(val_losses, label="Pérdida validación")
-        ax.set_xlabel("Época"); ax.set_ylabel("Loss"); ax.set_title("Curva de entrenamiento")
+        ax.set_xlabel("Época"); ax.set_ylabel("Pérdida"); ax.set_title("Curva de entrenamiento")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
         st.pyplot(fig_loss, use_container_width=True)
 
@@ -427,7 +427,7 @@ with col_note:
     )
 
 # ------------------------- 3) Matrices difusas con CEA — CLOROFILA (4 clases) -------------------------
-st.subheader("🧩 Matrices de confusión **difusas** — Clorofila (CEA)")
+st.subheader("🧩 Matrices de confusión con lógica difusa — Clorofila (CEA)")
 base_cls_chl = df_cea.dropna(subset=REQ_FEATURES + [TARGET_CHL]).reset_index(drop=True)
 
 if not base_cls_chl.empty:
@@ -469,11 +469,11 @@ if not base_cls_chl.empty:
 
     c1, c2 = st.columns(2)
     with c1:
-        st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS_CHL, "Matriz **difusa** — SVM (Clorofila — CEA)"),
+        st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS_CHL, "Matriz de confusión con lógica difusa — SVM (Clorofila — CEA)"),
                   use_container_width=True)
         st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
     with c2:
-        st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS_CHL, "Matriz **difusa** — KNN (Clorofila — CEA)"),
+        st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS_CHL, "Matriz de confusión con lógica difusa — KNN (Clorofila — CEA)"),
                   use_container_width=True)
         st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
 
@@ -482,7 +482,7 @@ else:
     st.warning("No hay datos suficientes de **Clorofila** para matrices difusas.")
 
 # ------------------------- 4) Matrices difusas con CEA — FICOCIANINA (3 clases) -------------------------
-st.subheader("🧩 Matrices de confusión **difusas** — Ficocianina (CEA)")
+st.subheader("🧩 Matrices clasificatorias con datos del CEA — Ficocianina")
 
 # Controles de umbrales y suavidad para Ficocianina (3 clases)
 with st.expander("⚙️ Umbrales y suavidad (Ficocianina)"):
