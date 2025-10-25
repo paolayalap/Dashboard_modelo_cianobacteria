@@ -34,7 +34,8 @@ with left:
         unsafe_allow_html=True
     )
 
-st.markdown(
+with right:
+    st.markdown(
         """
         <img src="imagenes/estanque.png"
              alt="Estanque UVG"
