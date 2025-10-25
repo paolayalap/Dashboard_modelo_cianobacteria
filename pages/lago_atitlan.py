@@ -573,7 +573,7 @@ if clicked:
         used_proxy_pcy = True
 
     # --- Matrices DIFUSAS — Estanque ---
-    st.markdown("### 🧩 Estanque — Clorofila (4 clases)")
+   st.subheader("🧩 Estanque — Clorofila (4 clases)")
     cc1, cc2 = st.columns(2)
     if proba_svm_p_al is not None:
         cm_svm_p = fuzzy_confusion_from_probs_4(y_true_chl, proba_svm_p_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
@@ -588,7 +588,7 @@ if clicked:
     if used_proxy_chl and not have_true_chl:
         st.caption("ℹ️ Clorofila (estanque): se usó **proxy** (predicción continua) como 'verdad' para la matriz difusa.")
 
-    st.markdown("### 🧩 Estanque — Ficocianina (3 clases)")
+    st.subheader("🧩 Estanque — Ficocianina (3 clases)")
     c5, c6 = st.columns(2)
     if proba_svm_pcy_al is not None:
         cm_svm_pcy = fuzzy_confusion_from_probs_3(y_true_pcy, proba_svm_pcy_al, float(cut1), float(cut2), float(eps1), float(eps2))
