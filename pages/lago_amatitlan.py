@@ -281,7 +281,7 @@ X_all = base[REQ_FEATURES].values
 y_all = base[TARGET].values
 
 # ------------------------- 2) Curva de entrenamiento + Nota -------------------------
-st.subheader("📈 Análisis del entrenamiento del modelo")
+st.subheader("📈 Análisis de la regresión del modelo")
 col_curve, col_note = st.columns([2, 1])
 
 with col_curve:
