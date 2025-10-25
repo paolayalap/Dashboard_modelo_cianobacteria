@@ -14,9 +14,9 @@ st.write("Actualmente, la detección de cianobacterias en cuerpos de agua en lag
 st.write("Es por eso que, mediante el uso de métodos de aprendizaje automático, a continuación se muestran modelos que están entrenados con distintos cuerpos de agua los cuales tienen diferencias en su calidad de agua para tener un método de detección de cianobacteria más amplio, económico y eficaz.") 
 
 st.write("El cuerpo de agua que se utilizó para la validación de los modelos fue el estanque del jardín botánico de la Universidad del Valle de Guatemala. ")
+st.write(" ")
 
-
-st.write("***Presiona un botón para elegir el modelo que desees analizar.")
+st.markdown("***Presiona un botón para elegir el modelo que desees analizar.")
 
 # --------- Navegación robusta ----------
 def go(page_stub: str):
