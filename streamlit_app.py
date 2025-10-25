@@ -33,6 +33,10 @@ with left:
         """,
         unsafe_allow_html=True
     )
+with right:
+    # Imagen desde la carpeta 'imagenes'
+    st.image("imagenes/estanque.png", caption="Estanque UVG", use_container_width=True)
+
 
 st.markdown("### Presiona un botón para elegir el modelo que desees analizar.")
 
