@@ -9,9 +9,7 @@ st.set_page_config(page_title="Selector de Modelo", page_icon="🧪", layout="wi
 st.title("🧪 Modelos para predecir cianobacteria")
 st.caption("Tablero complementario del Trabajo de Graduación de Paola Andrea Ayala Pineda.")
 
-st.write("Actualmente, la detección de cianobacterias en cuerpos de agua en lagos como lo son 
-el de de Amatitlán y Atitlán, se realiza por medio de un análisis de laboratorio. Sin embargo, 
-este proceso puede ser tardado, costoso y necesita de personal capacitado para llevarlo a cabo.") 
+st.write("Actualmente, la detección de cianobacterias en cuerpos de agua en lagos como lo son el de de Amatitlán y Atitlán, se realiza por medio de un análisis de laboratorio. Sin embargo, este proceso puede ser tardado, costoso y necesita de personal capacitado para llevarlo a cabo.") 
 
 st.write("Es por eso que, mediante el uso de métodos de aprendizaje automático, a continuación se muestran 
 modelos que están entrenados con distintos cuerpos de agua los cuales tienen diferencias en su 
