@@ -228,7 +228,7 @@ def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.2f}"):
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             ax.text(j, i, fmt.format(cm[i, j]), va="center", ha="center", fontsize=14, fontweight="bold")
-    ax.set_xlabel("Etiqueta predicha"); ax.set_ylabel("Etiqueta real (difusa)")
+    ax.set_xlabel("Etiqueta predicha"); ax.set_ylabel("Etiqueta real")
     fig.tight_layout()
     return fig
 
