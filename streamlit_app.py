@@ -16,7 +16,7 @@ st.write("Es por eso que, mediante el uso de métodos de aprendizaje automático
 st.write("El cuerpo de agua que se utilizó para la validación de los modelos fue el estanque del jardín botánico de la Universidad del Valle de Guatemala. ")
 st.write(" ")
 
-st.write("###Presiona un botón para elegir el modelo que desees analizar.")
+st.markdown("### Presiona un botón para elegir el modelo que desees analizar.")
 
 # --------- Navegación robusta ----------
 def go(page_stub: str):
