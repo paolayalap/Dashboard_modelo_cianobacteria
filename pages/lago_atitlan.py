@@ -567,8 +567,9 @@ if not base_cls_pcy.empty:
 else:
     st.warning("No hay datos suficientes de **Ficocianina** para matrices difusas.")
 
-# ------------------------- 5) Predicción (Clorofila y Ficocianina) con datos del estanque -------------------------
-st.subheader("🧪 Predicción (Clorofila y Ficocianina) con datos del estanque")
+
+# ------------------------- 5) Predicción (Clorofila y Ficocianina) con datos del estanque + matrices difusas -------------------------
+st.subheader("🧪 Predicción (Clorofila y Ficocianina) con datos del estanque + Matrices difusas")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
@@ -585,6 +586,7 @@ if clicked:
     else:
         df_pond = read_csv_robust(pond_path)
 
+    # Normalización y numéricos
     df_pond = normalize_columns(df_pond)
     for c in REQ_FEATURES + [TARGET_CHL, TARGET_PCY]:
         if c in df_pond.columns:
@@ -596,6 +598,8 @@ if clicked:
         st.stop()
 
     Xp = df_pond[REQ_FEATURES].values
+    have_true_chl = TARGET_CHL in df_pond.columns and df_pond[TARGET_CHL].notna().any()
+    have_true_pcy = TARGET_PCY in df_pond.columns and df_pond[TARGET_PCY].notna().any()
 
     # --- Predicción Clorofila (continua)
     yhat_chl = None
@@ -603,15 +607,13 @@ if clicked:
         Xp_s = TRAIN_SCALER.transform(Xp)
         y_pred_t = TRAIN_MODEL_CHL.predict(Xp_s, verbose=0).ravel()
         yhat_chl = np.expm1(y_pred_t) if TRAIN_Y_LOG1P_CHL else y_pred_t
+    elif 'svm_clf' in locals():
+        proba_svm_p = svm_clf.predict_proba(Xp)
+        proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS_CHL)
+        centers_chl = np.array([1.0, 4.5, 20.0, 60.0])
+        yhat_chl = proba_svm_p_al @ centers_chl
     else:
-        # Fallback con SVM de Clorofila si se entrenó
-        if 'svm_clf' in locals():
-            proba_svm_p = svm_clf.predict_proba(Xp)
-            proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS_CHL)
-            centers = np.array([1.0, 4.5, 20.0, 60.0])
-            yhat_chl = proba_svm_p_al @ centers
-        else:
-            yhat_chl = np.full(len(Xp), np.nan)
+        yhat_chl = np.full(len(Xp), np.nan)
     yhat_chl = np.clip(yhat_chl, 0.0, None) if yhat_chl is not None else None
 
     # --- Predicción Ficocianina (continua)
@@ -620,17 +622,124 @@ if clicked:
         Xp_s = TRAIN_SCALER.transform(Xp)
         y_pred_t = TRAIN_MODEL_PCY.predict(Xp_s, verbose=0).ravel()
         yhat_pcy = np.expm1(y_pred_t) if TRAIN_Y_LOG1P_PCY else y_pred_t
-        yhat_pcy = np.clip(yhat_pcy, 0.0, None)
     else:
         yhat_pcy = np.full(len(Xp), np.nan)
+    yhat_pcy = np.clip(yhat_pcy, 0.0, None) if yhat_pcy is not None else None
 
-    # --- Exportar
+    # =========================================================
+    #   MATRICES DIFUSAS — ESTANQUE (Clorofila y Ficocianina)
+    # =========================================================
+
+    # ----- A) Clorofila (4 clases)
+    st.markdown("### 🧩 Matriz difusa — Estanque (Clorofila)")
+
+    proba_svm_p_al = None
+    proba_knn_p_al = None
+    # Probabilidades con clasificadores entrenados en CEA (si existen)
+    if 'svm_clf' in locals():
+        proba_svm_p = svm_clf.predict_proba(Xp)
+        proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS_CHL)
+    if 'knn_clf' in locals():
+        proba_knn_p = knn_clf.predict_proba(Xp)
+        proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS_CHL)
+
+    # "Verdad" para la matriz difusa de Clorofila
+    if have_true_chl:
+        y_true_chl = pd.to_numeric(df_pond[TARGET_CHL], errors="coerce").fillna(0).to_numpy()
+        used_proxy_chl = False
+    else:
+        # Proxy con regresor si hay, si no con centroides del SVM
+        if yhat_chl is not None and np.isfinite(yhat_chl).any():
+            y_true_chl = np.nan_to_num(yhat_chl, nan=0.0)
+            used_proxy_chl = True
+        elif proba_svm_p_al is not None:
+            centers_chl = np.array([1.0, 4.5, 20.0, 60.0])
+            y_true_chl = proba_svm_p_al @ centers_chl
+            used_proxy_chl = True
+        else:
+            st.info("No hay verdad (real o proxy) disponible para clorofila en el estanque; se omite la matriz difusa.")
+            y_true_chl = None
+            used_proxy_chl = True
+
+    if y_true_chl is not None and (proba_svm_p_al is not None or proba_knn_p_al is not None):
+        cc1, cc2 = st.columns(2)
+        if proba_svm_p_al is not None:
+            cm_svm_p = fuzzy_confusion_from_probs_4(y_true_chl, proba_svm_p_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
+            with cc1:
+                st.pyplot(
+                    plot_confusion_matrix_pretty_float(cm_svm_p, LABELS_CHL, "Estanque — SVM (Clorofila)"),
+                    use_container_width=True
+                )
+                st.caption(f"Suma de pesos (SVM): {cm_svm_p.sum():.2f}")
+        if proba_knn_p_al is not None:
+            cm_knn_p = fuzzy_confusion_from_probs_4(y_true_chl, proba_knn_p_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
+            with cc2:
+                st.pyplot(
+                    plot_confusion_matrix_pretty_float(cm_knn_p, LABELS_CHL, "Estanque — KNN (Clorofila)"),
+                    use_container_width=True
+                )
+                st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
+        if used_proxy_chl and not have_true_chl:
+            st.caption("ℹ️ Clorofila: se usó **proxy** (regresor o centroides) como 'verdad' para la matriz difusa.")
+
+    # ----- B) Ficocianina (3 clases, con umbrales cut1/cut2 definidos arriba)
+    st.markdown("### 🧩 Matriz difusa — Estanque (Ficocianina)")
+
+    proba_svm_pcy_al = None
+    proba_knn_pcy_al = None
+    if 'svm_clf_pcy' in locals():
+        proba_svm_pcy = svm_clf_pcy.predict_proba(Xp)
+        proba_svm_pcy_al = align_proba_to_labels(proba_svm_pcy, svm_classes_pcy, LABELS_PCY)
+    if 'knn_clf_pcy' in locals():
+        proba_knn_pcy = knn_clf_pcy.predict_proba(Xp)
+        proba_knn_pcy_al = align_proba_to_labels(proba_knn_pcy, knn_classes_pcy, LABELS_PCY)
+
+    # "Verdad" para la matriz difusa de Ficocianina
+    if have_true_pcy:
+        y_true_pcy = pd.to_numeric(df_pond[TARGET_PCY], errors="coerce").fillna(0).to_numpy()
+        used_proxy_pcy = False
+    else:
+        if yhat_pcy is not None and np.isfinite(yhat_pcy).any():
+            y_true_pcy = np.nan_to_num(yhat_pcy, nan=0.0)
+            used_proxy_pcy = True
+        else:
+            st.info("No hay verdad (real o proxy) disponible para ficocianina en el estanque; se omite la matriz difusa.")
+            y_true_pcy = None
+            used_proxy_pcy = True
+
+    if y_true_pcy is not None and (proba_svm_pcy_al is not None or proba_knn_pcy_al is not None):
+        c3, c4 = st.columns(2)
+        if proba_svm_pcy_al is not None:
+            cm_svm_pcy = fuzzy_confusion_from_probs_3(y_true_pcy, proba_svm_pcy_al, float(cut1), float(cut2), float(eps1), float(eps2))
+            with c3:
+                st.pyplot(
+                    plot_confusion_matrix_pretty_float(
+                        cm_svm_pcy, LABELS_PCY, f"Estanque — SVM (Ficocianina)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
+                    ),
+                    use_container_width=True
+                )
+                st.caption(f"Suma de pesos (SVM): {cm_svm_pcy.sum():.2f}")
+        if proba_knn_pcy_al is not None:
+            cm_knn_pcy = fuzzy_confusion_from_probs_3(y_true_pcy, proba_knn_pcy_al, float(cut1), float(cut2), float(eps1), float(eps2))
+            with c4:
+                st.pyplot(
+                    plot_confusion_matrix_pretty_float(
+                        cm_knn_pcy, LABELS_PCY, f"Estanque — KNN (Ficocianina)\nUmbrales: {cut1:.0f}, {cut2:.0f} μg/L"
+                    ),
+                    use_container_width=True
+                )
+                st.caption(f"Suma de pesos (KNN): {cm_knn_pcy.sum():.2f}")
+        if used_proxy_pcy and not have_true_pcy:
+            st.caption("ℹ️ Ficocianina: se usó **proxy** (regresor) como 'verdad' para la matriz difusa.")
+
+    # --- Exportar CSV con predicciones
     df_pred_export = df_pond.copy()
     df_pred_export["Clorofila_predicha (μg/L)"] = yhat_chl if yhat_chl is not None else np.nan
     df_pred_export["Ficocianina_predicha (μg/L)"] = yhat_pcy
-
     st.session_state.df_pred_export = df_pred_export
-    st.success("✅ Predicciones generadas para el estanque (Clorofila y Ficocianina). Revisa y descarga abajo.")
+    st.success("✅ Predicciones y matrices del estanque generadas. Revisa y descarga abajo.")
+
+
 
 # ========= Botón inferior: Descargar CSV =========
 col_right = st.columns(2)[1]
