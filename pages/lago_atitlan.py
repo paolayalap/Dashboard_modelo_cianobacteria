@@ -573,7 +573,7 @@ if clicked:
         used_proxy_pcy = True
 
     # --- Matrices DIFUSAS — Estanque ---
-   st.subheader("🧩 Estanque — Clorofila (4 clases)")
+    st.subheader("🧩 Estanque — Clorofila (4 clases)")
     cc1, cc2 = st.columns(2)
     if proba_svm_p_al is not None:
         cm_svm_p = fuzzy_confusion_from_probs_4(y_true_chl, proba_svm_p_al, 2.0, 7.0, 40.0, 0.3, 1.0, 5.0)
