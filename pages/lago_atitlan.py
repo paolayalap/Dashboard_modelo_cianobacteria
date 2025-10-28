@@ -365,19 +365,57 @@ with col_note:
         """
     )
 
-# ------------------------- 3) Matrices difusas (SVM y KNN) + Nota -------------------------
+
+
+# ------------------------- 3) Matrices clasificatorias (SVM y KNN) + Nota -------------------------
 st.subheader("🧩 Matrices clasificatorias con datos de CEA")
 
-X_train, X_test, y_train_num, y_test_num = train_test_split(X_all, y_all, test_size=0.20, random_state=42)
-y_train_cls = pd.cut(y_train_num, bins=BINS, labels=LABELS, right=False)
+# 0) Asegurar no-negatividad y números reales
+y_all = np.clip(pd.to_numeric(base[TARGET], errors="coerce").to_numpy(), 0.0, None)
+X_all = base[REQ_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy()
 
-svm_clf = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
-                                             class_weight="balanced", probability=True, random_state=42))
-knn_clf = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights="distance"))
+# 1) Split
+X_train, X_test, y_train_num, y_test_num = train_test_split(
+    X_all, y_all, test_size=0.20, random_state=42
+)
 
+# 2) Bins con borde inferior abierto para evitar NaN si hubiera algún <0
+BINS_SAFE = [-np.inf, 2, 7, 40, np.inf]
+y_train_cls = pd.cut(y_train_num, bins=BINS_SAFE, labels=LABELS, right=False)
+
+# 3) Filtrar cualquier NaN que quede por seguridad
+mask_train = ~y_train_cls.isna()
+X_train = X_train[mask_train]
+y_train_num = y_train_num[mask_train]
+y_train_cls = y_train_cls[mask_train]
+
+# 4) Comprobar que haya al menos 2 clases
+unique_classes = pd.unique(y_train_cls)
+if len(unique_classes) < 2:
+    st.error(
+        "Después de binning, el conjunto de entrenamiento tiene menos de **2 clases**. "
+        "Aumenta el tamaño de datos, revisa el rango de clorofila o ajusta los umbrales."
+    )
+    st.write("Conteo por clase en entrenamiento:", y_train_cls.value_counts())
+    st.stop()
+
+st.write("Conteo por clase en entrenamiento:", y_train_cls.value_counts().rename("n_muestras"))
+
+# 5) Modelos
+svm_clf = make_pipeline(
+    StandardScaler(),
+    SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", probability=True, random_state=42)
+)
+knn_clf = make_pipeline(
+    StandardScaler(),
+    KNeighborsClassifier(n_neighbors=7, weights="distance")
+)
+
+# 6) Entrenamiento
 svm_clf.fit(X_train, y_train_cls)
 knn_clf.fit(X_train, y_train_cls)
 
+# 7) Probabilidades en test
 proba_svm = svm_clf.predict_proba(X_test)
 proba_knn = knn_clf.predict_proba(X_test)
 
@@ -387,6 +425,7 @@ knn_classes = knn_clf.named_steps[list(knn_clf.named_steps.keys())[-1]].classes_
 proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS)
 proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 
+# 8) Matrices difusas (con y_test_num real, ya clippeado a >=0)
 cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4)
 cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4)
 
@@ -397,6 +436,7 @@ with c1:
         use_container_width=True
     )
     st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
+
 with c2:
     st.pyplot(
         plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — KNN (CEA)"),
@@ -406,11 +446,15 @@ with c2:
 
 st.info(
     """
-    **Nota:** Estas matrices **difusas** consideran la cercanía a los umbrales (2, 7, 40 μg/L).
-    En lugar de contar aciertos/errores duros, reparten *peso* entre clases vecinas cuando la
-    clorofila real está cerca de un límite. Así, penalizan menos las confusiones razonables.
+    **Nota:** Usamos bins `[-∞, 2), [2, 7), [7, 40), [40, ∞)` y recortamos clorofila a valores no negativos.
+    Esto evita `NaN` en las etiquetas y garantiza entrenar con al menos dos clases reales.
     """
 )
+
+
+
+
+
 
 # ------------------------- 4) Botón: Predecir con datos del estanque -------------------------
 st.subheader("🧪 Predicción y matrices con datos del estanque")
