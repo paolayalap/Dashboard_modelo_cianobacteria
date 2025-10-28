@@ -93,7 +93,6 @@ _def_map = {
 }
 
 def _strip_accents(text: str) -> str:
-    """Elimina diacríticos (tildes) para comparar de forma robusta."""
     return ''.join(ch for ch in unicodedata.normalize('NFD', text) if not unicodedata.combining(ch))
 
 def _canon(s: str) -> str:
@@ -101,7 +100,7 @@ def _canon(s: str) -> str:
     s = unicodedata.normalize("NFKD", s)
     s = s.replace("µ", "u").replace("μ", "u")
     s = "".join(ch for ch in s if ch.isprintable())
-    s = _strip_accents(s)            # quitamos tildes
+    s = _strip_accents(s)
     s = s.lower().strip()
     s = re.sub(r"\s+", " ", s)
     return s
@@ -110,10 +109,8 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     ren = {}
     for c in df.columns:
         k = _canon(c)
-        # 1) coincidencia directa
         if k in _def_map:
             ren[c] = _def_map[k]; continue
-        # 2) reglas heurísticas
         if "conductividad" in k and ("us/cm" in k or "uscm" in k or "s/cm" in k):
             ren[c] = "Conductividad (μS/cm)"; continue
         if "temperatura" in k or k.startswith("temp"):
@@ -141,7 +138,6 @@ def read_csv_robust(path_or_buffer) -> pd.DataFrame:
     return pd.read_csv(path_or_buffer, engine="python")
 
 def to_numeric_smart(s: pd.Series) -> pd.Series:
-    """Convierte strings con separadores locales (miles/decimales) a float de forma robusta."""
     s = s.astype(str).str.replace("\u00A0", "", regex=False).str.strip()
     def fix(x: str) -> str:
         x = x.replace(" ", "")
@@ -242,7 +238,7 @@ else:
 # Normaliza encabezados
 df_cea = normalize_columns(df_cea)
 
-# Renombrado **silencioso** de Oxígeno Disuelto si falta el nombre canónico
+# Renombrado silencioso de Oxígeno Disuelto si falta el nombre canónico
 if "Oxígeno Disuelto (mg/L)" not in df_cea.columns:
     cands = []
     for col in df_cea.columns:
@@ -254,7 +250,7 @@ if "Oxígeno Disuelto (mg/L)" not in df_cea.columns:
     if cands:
         df_cea.rename(columns={cands[0]: "Oxígeno Disuelto (mg/L)"}, inplace=True)
 
-# Vista previa (10 filas) + expander
+# Vista previa
 st.markdown("**Vista previa (10 primeras filas):**")
 st.table(df_cea.head(10))
 with st.expander("⬇️ Ver todos los datos CEA"):
@@ -277,8 +273,9 @@ if base.empty:
     st.error("El archivo CEA no tiene filas válidas tras limpieza.")
     st.stop()
 
-X_all = base[REQ_FEATURES].values
-y_all = base[TARGET].values
+# Matrices necesitarán estos arrays
+X_all = base[REQ_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy()
+y_all = np.clip(pd.to_numeric(base[TARGET], errors="coerce").to_numpy(), 0.0, None)
 
 # ------------------------- 2) Curva de entrenamiento + Nota -------------------------
 st.subheader("📈 Análisis de la regresión del modelo")
@@ -299,20 +296,16 @@ with col_curve:
         TRAIN_MODEL = None
         TRAIN_Y_LOG1P = False
     else:
-        # --- Split
         X_tr, X_te, y_tr, y_te = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
 
-        # --- Escalado de X
         scaler = StandardScaler()
         X_tr_s = scaler.fit_transform(X_tr)
         X_te_s = scaler.transform(X_te)
 
-        # --- Transformación del objetivo
         Y_LOG1P = True
         y_tr_t = np.log1p(y_tr) if Y_LOG1P else y_tr
         y_te_t = np.log1p(y_te) if Y_LOG1P else y_te
 
-        # --- Modelo
         model = keras.Sequential([
             layers.Input(shape=(X_tr_s.shape[1],)),
             layers.Dense(128, activation="relu"),
@@ -320,18 +313,12 @@ with col_curve:
             layers.Dense(64, activation="relu"),
             layers.Dense(1)
         ])
-
-        # --- Pérdida robusta + callbacks
         model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=1e-3),
             loss=keras.losses.Huber(delta=1.0)
         )
-        es = keras.callbacks.EarlyStopping(
-            monitor="val_loss", patience=25, restore_best_weights=True, verbose=0
-        )
-        rl = keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0
-        )
+        es = keras.callbacks.EarlyStopping(monitor="val_loss", patience=25, restore_best_weights=True, verbose=0)
+        rl = keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0)
 
         hist = model.fit(
             X_tr_s, y_tr_t,
@@ -340,17 +327,14 @@ with col_curve:
             callbacks=[es, rl]
         )
 
-        # --- Curva
         fig_loss, ax = plt.subplots()
         ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
         ax.plot(hist.history["val_loss"], label="Pérdida validación")
         ax.set_xlabel("Época"); ax.set_ylabel("Pérdida")
         ax.set_title("Curva de entrenamiento (Regresión NN sobre CEA)")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
-        # ax.set_yscale("log")  # opcional
         st.pyplot(fig_loss, use_container_width=True)
 
-        # Guardar para inferencia posterior
         TRAIN_SCALER = scaler
         TRAIN_MODEL = model
         TRAIN_Y_LOG1P = Y_LOG1P
@@ -360,40 +344,34 @@ with col_note:
         """
         **Nota:** La curva muestra cómo evoluciona la *pérdida* durante el entrenamiento
         y validación del modelo de **regresión** que estima la clorofila (μg/L)
-        a partir de pH, temperatura, conductividad, oxígeno disuelto y turbidez (**datos CEA**).
+        a partir de pH, temperatura, conductividad, oxígeno disuelto y turbidez (datos CEA).
         Una curva descendente y estable sugiere buen ajuste sin sobreajuste.
         """
     )
 
-
-
 # ------------------------- 3) Matrices clasificatorias (SVM y KNN) + Nota -------------------------
 st.subheader("🧩 Matrices clasificatorias con datos de CEA")
 
-# 0) Asegurar no-negatividad y números reales
-y_all = np.clip(pd.to_numeric(base[TARGET], errors="coerce").to_numpy(), 0.0, None)
-X_all = base[REQ_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy()
-
-# 1) Split
+# Split
 X_train, X_test, y_train_num, y_test_num = train_test_split(
     X_all, y_all, test_size=0.20, random_state=42
 )
 
-# 2) Bins con borde inferior abierto para evitar NaN si hubiera algún <0
+# Bins con borde inferior abierto para evitar NaN si hubiera algún <0
 BINS_SAFE = [-np.inf, 2, 7, 40, np.inf]
 y_train_cls = pd.cut(y_train_num, bins=BINS_SAFE, labels=LABELS, right=False)
 
-# 3) Filtrar cualquier NaN que quede por seguridad
+# Filtrar cualquier NaN residual
 mask_train = ~y_train_cls.isna()
 X_train = X_train[mask_train]
 y_train_num = y_train_num[mask_train]
 y_train_cls = y_train_cls[mask_train]
 
-# 4) Comprobar que haya al menos 2 clases
+# Comprobar al menos 2 clases
 unique_classes = pd.unique(y_train_cls)
 if len(unique_classes) < 2:
     st.error(
-        "Después de binning, el conjunto de entrenamiento tiene menos de **2 clases**. "
+        "Después de binning, el conjunto de entrenamiento tiene menos de 2 clases. "
         "Aumenta el tamaño de datos, revisa el rango de clorofila o ajusta los umbrales."
     )
     st.write("Conteo por clase en entrenamiento:", y_train_cls.value_counts())
@@ -401,7 +379,7 @@ if len(unique_classes) < 2:
 
 st.write("Conteo por clase en entrenamiento:", y_train_cls.value_counts().rename("n_muestras"))
 
-# 5) Modelos
+# Modelos
 svm_clf = make_pipeline(
     StandardScaler(),
     SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", probability=True, random_state=42)
@@ -411,11 +389,11 @@ knn_clf = make_pipeline(
     KNeighborsClassifier(n_neighbors=7, weights="distance")
 )
 
-# 6) Entrenamiento
+# Entrenamiento
 svm_clf.fit(X_train, y_train_cls)
 knn_clf.fit(X_train, y_train_cls)
 
-# 7) Probabilidades en test
+# Probabilidades en test
 proba_svm = svm_clf.predict_proba(X_test)
 proba_knn = knn_clf.predict_proba(X_test)
 
@@ -425,7 +403,7 @@ knn_classes = knn_clf.named_steps[list(knn_clf.named_steps.keys())[-1]].classes_
 proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS)
 proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 
-# 8) Matrices difusas (con y_test_num real, ya clippeado a >=0)
+# Matrices difusas (con y_test_num clippeado a >=0)
 cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4)
 cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4)
 
@@ -436,7 +414,6 @@ with c1:
         use_container_width=True
     )
     st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
-
 with c2:
     st.pyplot(
         plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — KNN (CEA)"),
@@ -446,22 +423,16 @@ with c2:
 
 st.info(
     """
-    **Nota:** Usamos bins `[-∞, 2), [2, 7), [7, 40), [40, ∞)` y recortamos clorofila a valores no negativos.
-    Esto evita `NaN` en las etiquetas y garantiza entrenar con al menos dos clases reales.
+    **Nota:** Usamos bins `[-∞, 2), [2, 7), [7, 40), [40, ∞)` y recortamos clorofila a no negativos.
+    Esto evita `NaN` en las etiquetas y asegura que SVM/KNN entrenen con varias clases.
     """
 )
 
-
-
-
-
-
-# ------------------------- 4) Botón: Predecir con datos del estanque -------------------------
+# ------------------------- 4) Predicción y matrices con datos del estanque -------------------------
 st.subheader("🧪 Predicción y matrices con datos del estanque")
 
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
-    # 1) Ruta / carga del CSV del estanque
     DEFAULT_POND = DEFAULT_DIR_POND / "dataframe.csv"
     pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
     pond_path = Path(pond_path_input)
@@ -475,36 +446,64 @@ if clicked:
     else:
         df_pond = read_csv_robust(pond_path)
 
-    # 2) Normalización de encabezados y numéricos
-    df_pond = normalize_columns(df_pond)
-    have_true = TARGET in df_pond.columns
+    # Normalización de encabezados
+    df_pond = normalize_columns(df_pond).copy()
+    st.write("Columnas detectadas en el estanque:", list(df_pond.columns))
 
-    for c in REQ_FEATURES + ([TARGET] if have_true else []):
+    # Conversión automática si la conductividad viene en mS/cm
+    cand_ms = None
+    for c in df_pond.columns:
+        k = _canon(c)
+        if "conductividad" in k and "ms/cm" in k:
+            cand_ms = c
+            break
+    if cand_ms is not None and "Conductividad (μS/cm)" not in df_pond.columns:
+        df_pond["Conductividad (μS/cm)"] = to_numeric_smart(df_pond[cand_ms]) * 1000.0
+
+    # Conversión numérica robusta + limpieza de tokens
+    CLEAN_TOKENS = {"nr": np.nan, "nd": np.nan, "na": np.nan, "": np.nan, "-": np.nan}
+    for c in REQ_FEATURES + [TARGET]:
         if c in df_pond.columns:
-            df_pond[c] = to_numeric_smart(df_pond[c])
+            s = df_pond[c].astype(str).str.strip().str.lower().map(CLEAN_TOKENS).fillna(df_pond[c])
+            df_pond[c] = to_numeric_smart(s.astype(str))
 
-    df_pond = df_pond.dropna(subset=REQ_FEATURES).reset_index(drop=True)
-    if df_pond.empty:
-        st.error("El archivo del estanque no tiene filas válidas tras limpieza.")
+    # Diagnóstico
+    st.write("Filas totales en el estanque (antes de filtrar):", len(df_pond))
+    if all(col in df_pond.columns for col in REQ_FEATURES):
+        st.write("Nulos por columna requerida:", df_pond[REQ_FEATURES].isna().sum())
+
+    # Validación de columnas requeridas
+    missing_cols = [c for c in REQ_FEATURES if c not in df_pond.columns]
+    if missing_cols:
+        st.error(f"Faltan columnas requeridas en el estanque: {missing_cols}. Revisa encabezados o el mapeo.")
         st.stop()
 
-    # 3) Matrices con SVM/KNN (probabilidades sobre X del estanque)
-    Xp = df_pond[REQ_FEATURES].values
+    # Filtrado final
+    df_pond = df_pond.dropna(subset=REQ_FEATURES).reset_index(drop=True)
+    st.write("Filas útiles para predecir (después de filtrar):", len(df_pond))
+    if df_pond.empty:
+        st.error(
+            "No quedó ninguna fila válida del estanque tras limpiar. "
+            "Revisa qué columna está vacía o con texto no numérico."
+        )
+        st.stop()
 
+    # Probabilidades con SVM/KNN
+    Xp = df_pond[REQ_FEATURES].to_numpy()
     proba_svm_p = svm_clf.predict_proba(Xp)
     proba_knn_p = knn_clf.predict_proba(Xp)
     proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
     proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
 
-    # 4) "Verdad" para la matriz difusa
+    # “Verdad” para la matriz difusa
+    used_proxy = False
+    have_true = TARGET in df_pond.columns and df_pond[TARGET].notna().any()
     if have_true:
         y_true_p = pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy()
-        used_proxy = False
     else:
         tm  = globals().get("TRAIN_MODEL", None)
         ts  = globals().get("TRAIN_SCALER", None)
         ylg = globals().get("TRAIN_Y_LOG1P", False)
-
         if KERAS_OK and (tm is not None) and (ts is not None):
             Xp_s = ts.transform(Xp)
             y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
@@ -513,13 +512,20 @@ if clicked:
             used_proxy = True
         else:
             pred_cls = np.argmax(proba_svm_p_al, axis=1)
-            centers  = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados
+            centers  = np.array([1.0, 4.5, 20.0, 60.0])
             y_true_p = centers[pred_cls]
             used_proxy = True
 
-    # 5) Matrices difusas con esas "verdades"
+    # Matrices difusas
     cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4)
     cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4)
+
+    # Aviso si no hay peso
+    if cm_svm_p.sum() == 0 or cm_knn_p.sum() == 0:
+        st.warning(
+            "Las matrices del estanque suman 0. Esto indica que no hubo filas válidas o las probabilidades "
+            "no se calcularon. Revisa el diagnóstico de filas y nulos mostrado arriba."
+        )
 
     cc1, cc2 = st.columns(2)
     with cc1:
@@ -538,13 +544,10 @@ if clicked:
     if used_proxy and not have_true:
         st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
 
-    st.success("Listo. Matrices del estanque generadas.")
-
-    # ========= Predicciones continuas para exportar =========
+    # Export de predicciones continuas
     tm  = globals().get("TRAIN_MODEL", None)
     ts  = globals().get("TRAIN_SCALER", None)
     ylg = globals().get("TRAIN_Y_LOG1P", False)
-
     if KERAS_OK and (tm is not None) and (ts is not None):
         Xp_s = ts.transform(Xp)
         yhat_t = tm.predict(Xp_s, verbose=0).ravel()
@@ -552,15 +555,12 @@ if clicked:
     else:
         centers = np.array([1.0, 4.5, 20.0, 60.0])
         yhat = proba_svm_p_al @ centers
-
     yhat = np.clip(yhat, 0.0, None)
 
-    # DataFrame a exportar
     df_pred_export = df_pond.copy()
     df_pred_export["Clorofila_predicha (μg/L)"] = yhat
-
-    # guardar para el botón de descarga
     st.session_state.df_pred_export = df_pred_export
+    st.success("Listo. Matrices del estanque generadas y predicciones calculadas.")
 
 # ========= Botón inferior: Descargar CSV =========
 col_right = st.columns(2)[1]
@@ -579,6 +579,6 @@ with col_right:
             "⬇️ Descargar predicciones (.csv)",
             data=b"",
             disabled=True,
-            help="Primero presiona 'Predecir con datos del estanque'.",
+            help="Primero ejecuta la sección del estanque para generar predicciones.",
             use_container_width=True,
         )
