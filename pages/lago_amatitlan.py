@@ -1,6 +1,6 @@
 # ==========================================================================
 # Streamlit: Visualización AMSA + Entrenamiento + Fuzzy Confusion (SVM/KNN)
-# Sin prompts de "Oxígeno Disuelto": auto-detección/renombrado silencioso
+# Con mejoras: sliders de ε, SMOTE opcional y tuning de hiperparámetros
 # ==========================================================================
 
 import os, io, re, unicodedata
@@ -13,7 +13,7 @@ from matplotlib.patches import Rectangle
 
 import streamlit as st
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
@@ -28,6 +28,14 @@ try:
 except Exception:
     KERAS_OK = False
 
+# --- mejoras: balanceo (opcional) ---
+try:
+    from imblearn.over_sampling import SMOTE
+    from imblearn.pipeline import Pipeline as ImbPipeline
+    IMB_OK = True
+except Exception:
+    IMB_OK = False
+
 # --- Estado global para el modelo de la curva ---
 TRAIN_SCALER = None
 TRAIN_MODEL = None
@@ -39,8 +47,8 @@ if "df_pred_export" not in st.session_state:
 
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
-st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
-st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Luego se muestran matrices difusas para SVM y KNN. Finalmente, puedes evaluar con `dataframe.csv` del estanque.")
+st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas (mejoradas)")
+st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Se muestran matrices difusas para SVM y KNN con mejoras (ε, SMOTE, tuning). Luego se evalúa con el `dataframe.csv` del estanque.")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
@@ -347,7 +355,6 @@ with col_curve:
         ax.set_xlabel("Época"); ax.set_ylabel("Pérdida")
         ax.set_title("Curva de entrenamiento (Regresión NN sobre AMSA)")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
-        # ax.set_yscale("log")  # <- opcional
         st.pyplot(fig_loss, use_container_width=True)
 
         # Guardar para inferencia posterior
@@ -364,55 +371,136 @@ with col_note:
         Una curva descendente y estable sugiere buen ajuste sin sobreajuste.
         """
     )
-    #user_note = st.text_area(
-    #    "✍️ Puedes editar esta explicación:",
-    #    value="La pérdida de validación converge sin aumentar, indicando buen generalizado."
-    #)
 
-# ------------------------- 3) Matrices difusas (SVM y KNN) + Nota -------------------------
+# ------------------------- 2.5) Parámetros de lógica difusa (ε) -------------------------
+st.subheader("⚙️ Parámetros de la lógica difusa")
+c_eps1, c_eps2, c_eps3 = st.columns(3)
+eps_2  = c_eps1.slider("ε alrededor de 2 µg/L", 0.1, 2.0, 0.3, 0.1)
+eps_7  = c_eps2.slider("ε alrededor de 7 µg/L", 0.3, 3.0, 0.8, 0.1)
+eps_40 = c_eps3.slider("ε alrededor de 40 µg/L", 0.5, 8.0, 2.0, 0.5)
+EPS_TUNED = (eps_2, eps_7, eps_40)
+st.caption("Tip: valores menores reducen el solapamiento Moderado↔Muy alto; si hay mucho ruido, aumenta un poco ε.")
+
+# ------------------------- 3) Matrices difusas (SVM y KNN) + mejoras -------------------------
 st.subheader("🧩 Matrices clasificatorias con datos de AMSA")
 
-X_train, X_test, y_train_num, y_test_num = train_test_split(X_all, y_all, test_size=0.20, random_state=42)
+# Etiquetas discretas para clasificar (estratificar / SMOTE / tuning)
+X_train, X_test, y_train_num, y_test_num = train_test_split(X_all, y_all, test_size=0.20,
+                                                            random_state=42)
 y_train_cls = pd.cut(y_train_num, bins=BINS, labels=LABELS, right=False)
+y_test_cls  = pd.cut(y_test_num,  bins=BINS, labels=LABELS, right=False)
 
-svm_clf = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=2.0, gamma="scale",
-                                             class_weight="balanced", probability=True, random_state=42))
-knn_clf = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights="distance"))
+# --------- Opciones de mejora ---------
+cA, cB = st.columns(2)
+use_smote = cA.checkbox("🔁 Rebalancear clases con SMOTE (recomendado)", value=True,
+                        help="Si imbalanced-learn no está instalado, se continúa sin SMOTE.")
+use_tuning = cB.checkbox("🔎 Optimizar hiperparámetros (GridSearchCV)", value=True,
+                         help="Prueba combos de C/γ en SVM y k en KNN.")
 
+# --------- Pipelines con/ sin SMOTE ---------
+if use_smote and IMB_OK:
+    # SVM
+    svm_base = ImbPipeline(steps=[
+        ("scaler", StandardScaler()),
+        ("smote", SMOTE(random_state=42, k_neighbors=3)),
+        ("svc", SVC(kernel="rbf", probability=True, class_weight=None, random_state=42))
+    ])
+    # KNN
+    knn_base = ImbPipeline(steps=[
+        ("scaler", StandardScaler()),
+        ("smote", SMOTE(random_state=42, k_neighbors=3)),
+        ("knn", KNeighborsClassifier())
+    ])
+else:
+    if use_smote and not IMB_OK:
+        st.warning("imblearn no está disponible; continuo sin SMOTE.")
+    svm_base = make_pipeline(StandardScaler(),
+                             SVC(kernel="rbf", probability=True, class_weight="balanced", random_state=42))
+    knn_base = make_pipeline(StandardScaler(),
+                             KNeighborsClassifier())
+
+# --------- Tuning (opcional) ---------
+if use_tuning:
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    if IMB_OK and use_smote:
+        svm_param = {
+            "svc__C":     [0.5, 1, 2, 4],
+            "svc__gamma": ["scale", 0.05, 0.1, 0.2]
+        }
+        knn_param = {
+            "knn__n_neighbors": [5, 7, 9, 11],
+            "knn__weights": ["uniform", "distance"]
+        }
+    else:
+        svm_param = {
+            "svc__C":     [0.5, 1, 2, 4],
+            "svc__gamma": ["scale", 0.05, 0.1, 0.2]
+        }
+        knn_param = {
+            "kneighborsclassifier__n_neighbors": [5, 7, 9, 11],
+            "kneighborsclassifier__weights": ["uniform", "distance"]
+        }
+
+    svm_clf = GridSearchCV(svm_base, svm_param, cv=cv, n_jobs=-1, refit=True)
+    knn_clf = GridSearchCV(knn_base, knn_param, cv=cv, n_jobs=-1, refit=True)
+else:
+    svm_clf = svm_base
+    knn_clf = knn_base
+
+# --------- Entrenamiento ---------
 svm_clf.fit(X_train, y_train_cls)
 knn_clf.fit(X_train, y_train_cls)
 
-proba_svm = svm_clf.predict_proba(X_test)
-proba_knn = knn_clf.predict_proba(X_test)
+# --------- Probabilidades alineadas a LABELS ---------
+# Para GridSearchCV, el estimador final está en .best_estimator_ (si se usó)
+svm_final = svm_clf.best_estimator_ if use_tuning else svm_clf
+knn_final = knn_clf.best_estimator_ if use_tuning else knn_clf
 
-svm_classes = svm_clf.named_steps[list(svm_clf.named_steps.keys())[-1]].classes_
-knn_classes = knn_clf.named_steps[list(knn_clf.named_steps.keys())[-1]].classes_
+# Obtener clases internas
+if IMB_OK and use_smote:
+    svm_classes = svm_final.named_steps["svc"].classes_
+    knn_classes = knn_final.named_steps["knn"].classes_
+else:
+    svm_last_name = list(svm_final.named_steps.keys())[-1]
+    knn_last_name = list(knn_final.named_steps.keys())[-1]
+    svm_classes = svm_final.named_steps[svm_last_name].classes_
+    knn_classes = knn_final.named_steps[knn_last_name].classes_
+
+proba_svm = svm_final.predict_proba(X_test)
+proba_knn = knn_final.predict_proba(X_test)
 
 proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS)
 proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 
-cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4)
-cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4)
+# --------- Matrices difusas con EPS_TUNED ---------
+cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4, eps=EPS_TUNED)
+cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4, eps=EPS_TUNED)
 
 c1, c2 = st.columns(2)
 with c1:
-    st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz de confusión con lógica difusa — SVM (AMSA)"),
-              use_container_width=True)
-    st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
+    st.pyplot(
+        plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz de confusión con lógica difusa — SVM (AMSA)"),
+        use_container_width=True
+    )
+    st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}"
+               + (f" | Mejores params: {getattr(svm_clf, 'best_params_', {})}" if use_tuning else ""))
+
 with c2:
-    st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — KNN (AMSA)"),
-              use_container_width=True)
-    st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
+    st.pyplot(
+        plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — KNN (AMSA)"),
+        use_container_width=True
+    )
+    st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}"
+               + (f" | Mejores params: {getattr(knn_clf, 'best_params_', {})}" if use_tuning else ""))
 
 st.info(
     """
-    **Nota:** Estas matrices **difusas** consideran la cercanía a los umbrales (2, 7, 40 μg/L).
-    En lugar de contar aciertos/errores duros, reparten *peso* entre clases vecinas cuando la
-    clorofila real está cerca de un límite. Así, penalizan menos las confusiones razonables.
+    **Nota:** Se aplican mejoras para reducir la confusión entre clases intermedias:
+    1) *SMOTE* (si está disponible) para balancear clases raras,
+    2) *GridSearchCV* para ajustar hiperparámetros,
+    3) Control de ε para ajustar el solapamiento en los umbrales 2, 7 y 40 µg/L.
     """
 )
-#user_note2 = st.text_area("✍️ Puedes editar esta explicación de las matrices:",
-#                         value="La matriz difusa suaviza el conteo cerca de 2, 7 y 40 μg/L.")
 
 # ------------------------- 4) Botón: Predecir con datos del estanque -------------------------
 st.subheader("🧪 Predicción y matrices con datos del estanque")
@@ -449,8 +537,8 @@ if clicked:
     # 3) Matrices con SVM/KNN (probabilidades sobre X del estanque)
     Xp = df_pond[REQ_FEATURES].values
 
-    proba_svm_p = svm_clf.predict_proba(Xp)
-    proba_knn_p = knn_clf.predict_proba(Xp)
+    proba_svm_p = svm_final.predict_proba(Xp)
+    proba_knn_p = knn_final.predict_proba(Xp)
     proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
     proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
 
@@ -475,9 +563,9 @@ if clicked:
             y_true_p = centers[pred_cls]
             used_proxy = True
 
-    # 5) Matrices difusas con esas "verdades"
-    cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4)
-    cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4)
+    # 5) Matrices difusas con esas "verdades" (mismo EPS_TUNED)
+    cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4, eps=EPS_TUNED)
+    cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4, eps=EPS_TUNED)
 
     cc1, cc2 = st.columns(2)
     with cc1:
