@@ -115,7 +115,7 @@ with c1:
         go("lago_amatitlan")
 
 with c2:
-    if st.button("**Modelo 2**", help="Predice clorofila y ficocianina con datos del lago de Atitlán", use_container_width=True):
+    if st.button("**Modelo 2**", help="Predice clorofila con datos del lago de Atitlán", use_container_width=True):
         go("lago_atitlan")
 
 with c3:
