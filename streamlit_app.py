@@ -17,6 +17,7 @@ with left:
         """
         <div style="text-align: justify;">
             <p>
+            <p>
             Actualmente, la detección de cianobacterias en lagos como Amatitlán y Atitlán 
             depende de análisis de laboratorio. Aunque son confiables, requieren tiempo, 
             recursos y personal especializado.
