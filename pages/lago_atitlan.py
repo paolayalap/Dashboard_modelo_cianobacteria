@@ -113,8 +113,8 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         if "turbidez" in k or "turbiedad" in k or "ntu" in k:
             ren[c] = "Turbidez (NTU)"; continue
         if (("oxigeno" in k or "oxygen" in k or "dissolved oxygen" in k
-             or re.search(r"\bdo\b", k) or re.search(r"\bod\b", k) or "o2" in k)
-            and ("mg/l" in k or "mg l" in k or "mg" in k)):
+             or re.search(r"\bdo\b", k) or re.search(r"\bod\b", k) or "o2" in k))
+            and ("mg/l" in k or "mg l" in k or "mg" in k):
             ren[c] = "Oxígeno Disuelto (mg/L)"; continue
         if "clorofila" in k or "chlorophyll" in k:
             ren[c] = "Clorofila (μg/L)"; continue
@@ -159,12 +159,18 @@ def _right_shoulder(x, a, b):
     if x >= b: return 1.0
     return (x - a) / (b - a) if b > a else 1.0
 
+def _left_shoulder(x, a, b):
+    x = float(x)
+    if x <= a: return 1.0
+    if x >= b: return 0.0
+    return (b - x) / (b - a) if b > a else 1.0
+
 DEFAULT_EPS = (0.3, 1.0, 5.0)
 
 def fuzzy_memberships_scalar(x, eps=DEFAULT_EPS):
     e1, e2, e3 = eps
-    # 0–2, 2–7, 7–40, ≥40
-    m0 = _trapezoid(x, 0.0, 0.0, 2.0 - e1, 2.0 + e1)
+    # Clase 0 con hombro izquierdo para cubrir x=0 y negativos
+    m0 = _left_shoulder(x, 2.0 - e1, 2.0 + e1)
     m1 = _trapezoid(x, 2.0 - e1, 2.0 + e1, 7.0 - e2, 7.0 + e2)
     m2 = _trapezoid(x, 7.0 - e2, 7.0 + e2, 40.0 - e3, 40.0 + e3)
     m3 = _right_shoulder(x, 40.0 - e3, 40.0 + e3)
@@ -223,7 +229,7 @@ cea_path_input = st.text_input("Ruta a **DATOS CEA.csv**", value=str(DEFAULT_CEA
 cea_path = Path(cea_path_input)
 
 if not cea_path.exists():
-    st.warning("No encuentro el archivo en la ruta indicada. Puedes **subirlo** aquí abajo.")
+    st.warning("No encuentro el archivo en la ruta indicada. Puedes subirlo aquí abajo.")
     up = st.file_uploader("Sube DATOS CEA.csv", type=["csv"])
     if up is None:
         st.stop()
@@ -240,8 +246,8 @@ if "Oxígeno Disuelto (mg/L)" not in df_cea.columns:
     for col in df_cea.columns:
         kc = _canon(col)
         if (("oxigeno" in kc or "oxygen" in kc or "dissolved oxygen" in kc
-             or re.search(r"\bdo\b", kc) or re.search(r"\bod\b", kc) or "o2" in kc)
-            and ("mg/l" in kc or "mg l" in kc or "mg" in kc)):
+             or re.search(r"\bdo\b", kc) or re.search(r"\bod\b", kc) or "o2" in kc))
+            and ("mg/l" in kc or "mg l" in kc or "mg" in kc):
             cands.append(col)
     if cands:
         df_cea.rename(columns={cands[0]: "Oxígeno Disuelto (mg/L)"}, inplace=True)
@@ -269,13 +275,11 @@ if base.empty:
     st.error("El archivo CEA no tiene filas válidas tras limpieza.")
     st.stop()
 
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # ELIMINA FILAS CON CLOROFILA NEGATIVA EN CEA
 neg_count = (pd.to_numeric(base[TARGET], errors="coerce") < 0).sum()
 if neg_count > 0:
     st.warning(f"Se eliminaron {int(neg_count)} filas con clorofila negativa del CEA.")
 base = base[pd.to_numeric(base[TARGET], errors="coerce") >= 0].reset_index(drop=True)
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 # Arrays para modelos y matrices
 X_all = base[REQ_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float32)
@@ -359,9 +363,9 @@ with col_curve:
 with col_note:
     st.info(
         """
-        La curva muestra la evolución de la pérdida del modelo de **regresión** que estima la clorofila (μg/L)
+        La curva muestra la evolución de la pérdida del modelo de regresión que estima la clorofila (μg/L)
         a partir de pH, temperatura, conductividad, oxígeno disuelto y turbidez. Si TensorFlow no está disponible,
-        se muestra una curva sintética y el resto del flujo sigue funcionando.
+        se muestra una curva sintética y el flujo sigue funcionando.
         """
     )
 
@@ -439,7 +443,7 @@ with c2:
 
 st.info(
     """
-    Se usan bins `0–2, 2–7, 7–40, ≥40` y una lógica difusa que suaviza los límites.
+    Se usan bins 0–2, 2–7, 7–40, ≥40 y lógica difusa con hombro izquierdo en la primera clase.
     Las filas con clorofila negativa fueron eliminadas del dataset CEA.
     """
 )
@@ -450,11 +454,11 @@ st.subheader("🧪 Predicción y matrices con datos del estanque")
 clicked = st.button("🔮 Predecir con datos del estanque")
 if clicked:
     DEFAULT_POND = DEFAULT_DIR_POND / "dataframe.csv"
-    pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
+    pond_path_input = st.text_input("Ruta a dataframe del estanque", value=str(DEFAULT_POND), key="pond_path")
     pond_path = Path(pond_path_input)
 
     if not pond_path.exists():
-        st.warning("No encuentro **dataframe.csv** en la ruta indicada. Sube el archivo:")
+        st.warning("No encuentro dataframe.csv en la ruta indicada. Sube el archivo:")
         up2 = st.file_uploader("Sube dataframe.csv", type=["csv"], key="pond")
         if up2 is None:
             st.stop()
@@ -483,13 +487,12 @@ if clicked:
             s = df_pond[c].astype(str).str.strip().str.lower().map(CLEAN_TOKENS).fillna(df_pond[c])
             df_pond[c] = to_numeric_smart(s.astype(str))
 
-    # >>>> ELIMINA FILAS CON CLOROFILA NEGATIVA EN ESTANQUE (SI TRAE COLUMNA REAL)
+    # Elimina filas con clorofila negativa si viene columna real
     if TARGET in df_pond.columns:
         neg_pond = (pd.to_numeric(df_pond[TARGET], errors="coerce") < 0)
         if neg_pond.any():
             st.warning(f"Estanque: se eliminaron {int(neg_pond.sum())} filas con clorofila negativa.")
             df_pond = df_pond[pd.to_numeric(df_pond[TARGET], errors="coerce") >= 0].reset_index(drop=True)
-    # <<<<
 
     # Diagnóstico
     st.write("Filas totales en el estanque (antes de filtrar):", len(df_pond))
@@ -529,7 +532,7 @@ if clicked:
             Xp_s = ts.transform(Xp).astype(np.float32)
             y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
             y_proxy  = np.expm1(y_pred_t) if ylg else y_pred_t
-            y_true_p = y_proxy
+            y_true_p = y_proxy  # negativos quedan cubiertos por el hombro izquierdo
             used_proxy = True
         else:
             pred_cls = np.argmax(proba_svm_p_al, axis=1)
@@ -559,7 +562,7 @@ if clicked:
         st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
 
     if used_proxy and not have_true:
-        st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
+        st.caption("ℹ️ Se usó proxy de clorofila para la matriz (no había columna de clorofila real).")
 
     # Export de predicciones continuas
     tm  = globals().get("TRAIN_MODEL", None)
