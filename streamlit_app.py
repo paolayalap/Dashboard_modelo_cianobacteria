@@ -1,6 +1,7 @@
 # ============================================
 # Página principal: Selector de Modelo (MWE)
 # ============================================
+from pathlib import Path
 import streamlit as st
 
 # Configuración: SOLO una vez y al inicio
@@ -34,17 +35,42 @@ with left:
         unsafe_allow_html=True
     )
 
+# ---------- Imagen en la columna derecha ----------
+def first_existing(paths):
+    for p in paths:
+        p = Path(p)
+        if p.is_file():
+            return str(p)
+    return None
+
+# Carpeta esperada: tu_app/imagenes/estanque.png (misma raíz que este archivo)
+BASE_DIR = Path(__file__).parent  # carpeta donde está este .py
+CANDIDATE_PATHS = [
+    "imagenes/estanque.png",                          # relativo a la raíz de la app
+    BASE_DIR / "imagenes" / "estanque.png",           # relativo al archivo actual
+    "static/imagenes/estanque.png",                   # si usas /static
+    "assets/estanque.png",                            # alternativa común
+]
+
+img_path = first_existing(CANDIDATE_PATHS)
+
 with right:
-    #st.image("imagenes/estanque.png", caption="Estanque UVG", use_container_width=True)
-    st.markdown(
-    """
-    <img src="imagenes/estanque.png"
-         style="width:90%; height:160px; object-fit:cover; border-radius:14px;"
-         alt="Estanque UVG">
-    """,
-    unsafe_allow_html=True
-)
-    
+    if img_path:
+        st.image(img_path, caption="Estanque UVG", use_container_width=True)
+        st.caption(f"📷 Cargada desde: `{img_path}`")
+    else:
+        st.warning(
+            "No encontré `imagenes/estanque.png`. Coloca la imagen en la ruta "
+            "`imagenes/estanque.png` a la misma altura que este archivo y vuelve a ejecutar."
+        )
+        st.code(
+            "Estructura esperada:\n"
+            "📁 tu_app/\n"
+            " ├─ app.py (o main.py)\n"
+            " ├─ pages/\n"
+            " └─ imagenes/estanque.png"
+        )
+
 st.markdown("### Presiona un botón para elegir el modelo que desees analizar.")
 
 # --------- Navegación robusta ----------
@@ -79,12 +105,12 @@ c1, c2, c3 = st.columns(3, gap="large")
 
 with c1:
     if st.button("**Modelo 1**", help="Predice clorofila con datos del lago de Amatitlán", use_container_width=True):
-        go("lago_amatitlan")    # <— stub correcto
+        go("lago_amatitlan")
 
 with c2:
     if st.button("**Modelo 2**", help="Predice clorofila y ficocianina con datos del lago de Atitlán", use_container_width=True):
-        go("lago_atitlan")      # <— stub correcto
+        go("lago_atitlan")
 
 with c3:
     if st.button("**Modelo 3**", help="Predice clorofila con datos del lago de Amatitlán y de Atitlán", use_container_width=True):
-        go("ambos_lagos")       # <— stub correcto
+        go("ambos_lagos")
