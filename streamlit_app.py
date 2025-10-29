@@ -62,7 +62,7 @@ img_path = first_existing(CANDIDATE_PATHS)
 
 with right:
     if img_path:
-        st.image(img_path, caption="Estanque UVG", use_container_width=True)
+        st.image(img_path, caption="Estanque del Jardín Botánico del Departamento de Biología de la Universidad del Valle de Guatemala", use_container_width=True)
         st.caption(f"📷 Cargada desde: `{img_path}`")
     else:
         st.warning(
