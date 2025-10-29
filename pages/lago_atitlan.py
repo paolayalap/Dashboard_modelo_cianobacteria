@@ -19,11 +19,11 @@ from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 
-# ====== Opcional (para curva de entrenamiento con red simple) ======
+# ====== Keras unificado (tf.keras) ======
 try:
     import tensorflow as tf
     from tensorflow import keras
-    from keras import layers
+    layers = keras.layers
     KERAS_OK = True
 except Exception:
     KERAS_OK = False
@@ -31,10 +31,7 @@ except Exception:
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="CEA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 CEA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
-st.caption(
-    "Se entrena un modelo con **DATOS CEA.csv**. Luego se muestran matrices difusas para SVM y KNN. "
-    "Finalmente, puedes evaluar con `dataframe.csv` del estanque."
-)
+st.caption("Se entrena un modelo con **DATOS CEA.csv**. Luego se muestran matrices difusas para SVM y KNN. Finalmente, puedes evaluar con `dataframe.csv` del estanque.")
 
 # --- Estado global para el modelo de la curva ---
 TRAIN_SCALER = None
@@ -54,10 +51,7 @@ REQ_FEATURES = [
     "Turbidez (NTU)",
 ]
 TARGET = "Clorofila (μg/L)"
-
-# Etiquetas y bins con clase 0–2
 LABELS = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (≥40)"]
-BINS_SAFE = [0, 2, 7, 40, np.inf]
 
 # ------------------------- Normalización flexible -------------------------
 _def_map = {
@@ -67,14 +61,12 @@ _def_map = {
     "temperatura (c)": "Temperatura (°C)",
     "temp (°c)": "Temperatura (°C)",
     "temp": "Temperatura (°C)",
-
     # conductividad
     "conductividad (us/cm)": "Conductividad (μS/cm)",
     "conductividad(us/cm)": "Conductividad (μS/cm)",
     "conductividad (s/cm)": "Conductividad (μS/cm)",
     "conductividad": "Conductividad (μS/cm)",
-
-    # oxígeno (variantes frecuentes)
+    # oxígeno
     "oxígeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
     "oxigeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
     "oxígeno disuelto (mgl)": "Oxígeno Disuelto (mg/L)",
@@ -84,13 +76,11 @@ _def_map = {
     "do (mg/l)": "Oxígeno Disuelto (mg/L)",
     "od (mg/l)": "Oxígeno Disuelto (mg/L)",
     "o2 disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
-
     # turbidez
     "turbidez (ntu)": "Turbidez (NTU)",
     "turbiedad (ntu)": "Turbidez (NTU)",
     "turbidez": "Turbidez (NTU)",
     "turbiedad": "Turbidez (NTU)",
-
     # objetivo
     "clorofila (μg/l)": TARGET,
     "clorofila (ug/l)": TARGET,
@@ -98,7 +88,6 @@ _def_map = {
 }
 
 def _strip_accents(text: str) -> str:
-    """Elimina diacríticos."""
     return ''.join(ch for ch in unicodedata.normalize('NFD', text) if not unicodedata.combining(ch))
 
 def _canon(s: str) -> str:
@@ -144,7 +133,6 @@ def read_csv_robust(path_or_buffer) -> pd.DataFrame:
     return pd.read_csv(path_or_buffer, engine="python")
 
 def to_numeric_smart(s: pd.Series) -> pd.Series:
-    """Convierte strings con separadores locales a float."""
     s = s.astype(str).str.replace("\u00A0", "", regex=False).str.strip()
     def fix(x: str) -> str:
         x = x.replace(" ", "")
@@ -174,14 +162,11 @@ def _right_shoulder(x, a, b):
 DEFAULT_EPS = (0.3, 1.0, 5.0)
 
 def fuzzy_memberships_scalar(x, eps=DEFAULT_EPS):
-    """Membresías para clases: 0–2, 2–7, 7–40, ≥40."""
     e1, e2, e3 = eps
-    # Clase 0: 0–2 con trapezoide y tolerancia en 2
+    # 0–2, 2–7, 7–40, ≥40
     m0 = _trapezoid(x, 0.0, 0.0, 2.0 - e1, 2.0 + e1)
-    # Intermedias
     m1 = _trapezoid(x, 2.0 - e1, 2.0 + e1, 7.0 - e2, 7.0 + e2)
     m2 = _trapezoid(x, 7.0 - e2, 7.0 + e2, 40.0 - e3, 40.0 + e3)
-    # Alta
     m3 = _right_shoulder(x, 40.0 - e3, 40.0 + e3)
     v = np.array([m0, m1, m2, m3], dtype=float)
     s = v.sum()
@@ -285,10 +270,9 @@ if base.empty:
     st.stop()
 
 # Arrays para modelos y matrices
-X_all = base[REQ_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy()
-
-# ✅ CAMBIO 1: clorofila del CEA sin negativos
-y_all = np.clip(pd.to_numeric(base[TARGET], errors="coerce").to_numpy(), 0.0, None)
+X_all = base[REQ_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float32)
+# Clip a 0: todo negativo -> 0
+y_all = np.clip(pd.to_numeric(base[TARGET], errors="coerce").to_numpy(), 0.0, None).astype(np.float32)
 
 # ------------------------- 2) Curva de entrenamiento + Nota -------------------------
 st.subheader("📈 Análisis de la regresión del modelo")
@@ -296,7 +280,6 @@ col_curve, col_note = st.columns([2, 1])
 
 with col_curve:
     if not KERAS_OK:
-        st.warning("TensorFlow/Keras no está disponible. Se mostrará una curva ficticia.")
         losses = np.linspace(1.0, 0.2, 60) + 0.05*np.random.randn(60)
         val_losses = losses + 0.05*np.random.randn(60) + 0.05
         fig_loss, ax = plt.subplots()
@@ -305,24 +288,18 @@ with col_curve:
         ax.set_xlabel("Época"); ax.set_ylabel("Pérdida"); ax.set_title("Curva de entrenamiento")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
         st.pyplot(fig_loss, use_container_width=True)
-        TRAIN_SCALER = None
-        TRAIN_MODEL = None
-        TRAIN_Y_LOG1P = False
+        TRAIN_SCALER = None; TRAIN_MODEL = None; TRAIN_Y_LOG1P = False
     else:
-        # Split
         X_tr, X_te, y_tr, y_te = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
 
-        # Escalado de X
         scaler = StandardScaler()
-        X_tr_s = scaler.fit_transform(X_tr)
-        X_te_s = scaler.transform(X_te)
+        X_tr_s = scaler.fit_transform(X_tr).astype(np.float32)
+        X_te_s = scaler.transform(X_te).astype(np.float32)
 
-        # Transformación del objetivo
         Y_LOG1P = True
-        y_tr_t = np.log1p(y_tr) if Y_LOG1P else y_tr
-        y_te_t = np.log1p(y_te) if Y_LOG1P else y_te
+        y_tr_t = np.log1p(y_tr).astype(np.float32) if Y_LOG1P else y_tr.astype(np.float32)
+        y_te_t = np.log1p(y_te).astype(np.float32) if Y_LOG1P else y_te.astype(np.float32)
 
-        # Modelo
         model = keras.Sequential([
             layers.Input(shape=(X_tr_s.shape[1],)),
             layers.Dense(128, activation="relu"),
@@ -330,60 +307,68 @@ with col_curve:
             layers.Dense(64, activation="relu"),
             layers.Dense(1)
         ])
+        model.compile(optimizer=keras.optimizers.Adam(1e-3),
+                      loss=keras.losses.Huber(delta=1.0))
 
-        # Pérdida + callbacks
-        model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-            loss=keras.losses.Huber(delta=1.0)
-        )
-        es = keras.callbacks.EarlyStopping(
-            monitor="val_loss", patience=25, restore_best_weights=True, verbose=0
-        )
-        rl = keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0
-        )
+        es = keras.callbacks.EarlyStopping(monitor="val_loss", patience=25,
+                                           restore_best_weights=True, verbose=0)
+        rl = keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5,
+                                               patience=12, min_lr=1e-6, verbose=0)
 
-        hist = model.fit(
-            X_tr_s, y_tr_t,
-            validation_data=(X_te_s, y_te_t),
-            epochs=400, batch_size=32, verbose=0,
-            callbacks=[es, rl]
-        )
+        try:
+            hist = model.fit(X_tr_s, y_tr_t,
+                             validation_data=(X_te_s, y_te_t),
+                             epochs=400, batch_size=32, verbose=0,
+                             callbacks=[es, rl])
 
-        # Curva
-        fig_loss, ax = plt.subplots()
-        ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
-        ax.plot(hist.history["val_loss"], label="Pérdida validación")
-        ax.set_xlabel("Época"); ax.set_ylabel("Pérdida")
-        ax.set_title("Curva de entrenamiento (Regresión NN sobre CEA)")
-        ax.grid(True); ax.legend(); fig_loss.tight_layout()
-        st.pyplot(fig_loss, use_container_width=True)
+            fig_loss, ax = plt.subplots()
+            ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
+            ax.plot(hist.history["val_loss"], label="Pérdida validación")
+            ax.set_xlabel("Época"); ax.set_ylabel("Pérdida")
+            ax.set_title("Curva de entrenamiento (Regresión NN sobre CEA)")
+            ax.grid(True); ax.legend(); fig_loss.tight_layout()
+            st.pyplot(fig_loss, use_container_width=True)
 
-        # Guardar para inferencia posterior
-        TRAIN_SCALER = scaler
-        TRAIN_MODEL = model
-        TRAIN_Y_LOG1P = Y_LOG1P
+            TRAIN_SCALER = scaler
+            TRAIN_MODEL = model
+            TRAIN_Y_LOG1P = Y_LOG1P
+
+        except Exception:
+            st.warning("No se pudo entrenar la red. Continuaré sin red y con curva sintética.")
+            losses = np.linspace(1.0, 0.2, 60) + 0.05*np.random.randn(60)
+            val_losses = losses + 0.05*np.random.randn(60) + 0.05
+            fig_loss, ax = plt.subplots()
+            ax.plot(losses, label="Pérdida entrenamiento")
+            ax.plot(val_losses, label="Pérdida validación")
+            ax.set_xlabel("Época"); ax.set_ylabel("Pérdida"); ax.set_title("Curva de entrenamiento (sintética)")
+            ax.grid(True); ax.legend(); fig_loss.tight_layout()
+            st.pyplot(fig_loss, use_container_width=True)
+
+            TRAIN_SCALER = None
+            TRAIN_MODEL = None
+            TRAIN_Y_LOG1P = False
+            KERAS_OK = False
 
 with col_note:
     st.info(
         """
-        **Nota:** La curva muestra cómo evoluciona la *pérdida* durante el entrenamiento
-        y validación del modelo de **regresión** que estima la clorofila (μg/L)
-        a partir de pH, temperatura, conductividad, oxígeno disuelto y turbidez (datos CEA).
-        Una curva descendente y estable sugiere buen ajuste sin sobreajuste.
+        La curva muestra la evolución de la pérdida del modelo de **regresión** que estima la clorofila (μg/L)
+        a partir de pH, temperatura, conductividad, oxígeno disuelto y turbidez. Si TensorFlow no está disponible,
+        se muestra una curva sintética y el resto del flujo sigue funcionando.
         """
     )
 
 # ------------------------- 3) Matrices clasificatorias (SVM y KNN) + Nota -------------------------
 st.subheader("🧩 Matrices clasificatorias con datos de CEA")
 
-# Split para clasificar
+# Split
 X_train, X_test, y_train_num, y_test_num = train_test_split(
     X_all, y_all, test_size=0.20, random_state=42
 )
 
 # Bins 0–2, 2–7, 7–40, ≥40
-y_train_cls = pd.cut(y_train_num, bins=BINS_SAFE, labels=LABELS, right=False)
+BINS = [0.0, 2.0, 7.0, 40.0, np.inf]
+y_train_cls = pd.cut(y_train_num, bins=BINS, labels=LABELS, right=False)
 
 # Filtrar cualquier NaN residual
 mask_train = ~y_train_cls.isna()
@@ -396,7 +381,7 @@ unique_classes = pd.unique(y_train_cls)
 if len(unique_classes) < 2:
     st.error(
         "Después de binning, el conjunto de entrenamiento tiene menos de 2 clases. "
-        "Aumenta el tamaño de datos, revisa el rango de clorofila o ajusta los umbrales."
+        "Aumenta el tamaño de datos o ajusta umbrales."
     )
     st.write("Conteo por clase en entrenamiento:", y_train_cls.value_counts())
     st.stop()
@@ -406,8 +391,7 @@ st.write("Conteo por clase en entrenamiento:", y_train_cls.value_counts().rename
 # Modelos
 svm_clf = make_pipeline(
     StandardScaler(),
-    SVC(kernel="rbf", C=2.0, gamma="scale",
-        class_weight="balanced", probability=True, random_state=42)
+    SVC(kernel="rbf", C=2.0, gamma="scale", class_weight="balanced", probability=True, random_state=42)
 )
 knn_clf = make_pipeline(
     StandardScaler(),
@@ -428,7 +412,7 @@ knn_classes = knn_clf.named_steps[list(knn_clf.named_steps.keys())[-1]].classes_
 proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS)
 proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 
-# Matrices difusas con y_test_num (ya no hay negativos)
+# Matrices difusas
 cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4)
 cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4)
 
@@ -448,9 +432,8 @@ with c2:
 
 st.info(
     """
-    **Nota:** Usamos bins `0–2`, `2–7`, `7–40`, `≥40` con lógica difusa
-    que suaviza las fronteras en 2, 7 y 40 μg/L. Esto penaliza menos
-    confusiones razonables cerca de los umbrales.
+    Se usan bins `0–2, 2–7, 7–40, ≥40` y una lógica difusa que suaviza los límites.
+    Como las etiquetas se clippean a 0, no se pierde peso si hay predicciones negativas.
     """
 )
 
@@ -476,7 +459,7 @@ if clicked:
     df_pond = normalize_columns(df_pond).copy()
     st.write("Columnas detectadas en el estanque:", list(df_pond.columns))
 
-    # Conversión automática si la conductividad viene en mS/cm -> μS/cm
+    # Conversión automática si la conductividad viene en mS/cm
     cand_ms = None
     for c in df_pond.columns:
         k = _canon(c)
@@ -512,35 +495,31 @@ if clicked:
         st.stop()
 
     # Probabilidades con SVM/KNN
-    Xp = df_pond[REQ_FEATURES].to_numpy()
+    Xp = df_pond[REQ_FEATURES].to_numpy(dtype=np.float32)
     proba_svm_p = svm_clf.predict_proba(Xp)
     proba_knn_p = knn_clf.predict_proba(Xp)
     proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
     proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
 
-    # “Verdad” para la matriz difusa
+    # “Verdad” para la matriz difusa, clip a 0 en ambos caminos
     used_proxy = False
     have_true = TARGET in df_pond.columns and df_pond[TARGET].notna().any()
-
     if have_true:
-        # ✅ CAMBIO 2: clipeo a 0 para verdad real
         y_true_p = np.clip(pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy(), 0.0, None)
     else:
         tm  = globals().get("TRAIN_MODEL", None)
         ts  = globals().get("TRAIN_SCALER", None)
         ylg = globals().get("TRAIN_Y_LOG1P", False)
         if KERAS_OK and (tm is not None) and (ts is not None):
-            Xp_s = ts.transform(Xp)
+            Xp_s = ts.transform(Xp).astype(np.float32)
             y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
             y_proxy  = np.expm1(y_pred_t) if ylg else y_pred_t
-            # ✅ CAMBIO 3: clipeo a 0 para el proxy
             y_true_p = np.clip(y_proxy, 0.0, None)
             used_proxy = True
         else:
-            # Recurso alterno sin red: usar centroides de clases con SVM
+            pred_cls = np.argmax(proba_svm_p_al, axis=1)
             centers  = np.array([1.0, 4.5, 20.0, 60.0])
-            y_true_p = proba_svm_p_al @ centers
-            y_true_p = np.clip(y_true_p, 0.0, None)
+            y_true_p = centers[pred_cls]
             used_proxy = True
 
     # Matrices difusas
@@ -548,10 +527,7 @@ if clicked:
     cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4)
 
     if cm_svm_p.sum() == 0 or cm_knn_p.sum() == 0:
-        st.warning(
-            "Las matrices del estanque suman 0. Esto indica que no hubo filas válidas o las probabilidades "
-            "no se calcularon. Revisa el diagnóstico de filas y nulos mostrado arriba."
-        )
+        st.warning("Las matrices del estanque suman 0. Revisa el diagnóstico de filas y nulos mostrado arriba.")
 
     cc1, cc2 = st.columns(2)
     with cc1:
@@ -570,27 +546,22 @@ if clicked:
     if used_proxy and not have_true:
         st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
 
-    # ========= Predicciones continuas para exportar =========
+    # Export de predicciones continuas
     tm  = globals().get("TRAIN_MODEL", None)
     ts  = globals().get("TRAIN_SCALER", None)
     ylg = globals().get("TRAIN_Y_LOG1P", False)
-
     if KERAS_OK and (tm is not None) and (ts is not None):
-        Xp_s = ts.transform(Xp)
+        Xp_s = ts.transform(Xp).astype(np.float32)
         yhat_t = tm.predict(Xp_s, verbose=0).ravel()
         yhat   = np.expm1(yhat_t) if ylg else yhat_t
     else:
         centers = np.array([1.0, 4.5, 20.0, 60.0])
         yhat = proba_svm_p_al @ centers
-
-    # Para el CSV no negativos
+    # Para el CSV: no negativos
     yhat = np.clip(yhat, 0.0, None)
 
-    # DataFrame a exportar
     df_pred_export = df_pond.copy()
     df_pred_export["Clorofila_predicha (μg/L)"] = yhat
-
-    # Guardar para el botón de descarga
     st.session_state.df_pred_export = df_pred_export
     st.success("Listo. Matrices del estanque generadas y predicciones calculadas.")
 
