@@ -269,10 +269,17 @@ if base.empty:
     st.error("El archivo CEA no tiene filas válidas tras limpieza.")
     st.stop()
 
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# ELIMINA FILAS CON CLOROFILA NEGATIVA EN CEA
+neg_count = (pd.to_numeric(base[TARGET], errors="coerce") < 0).sum()
+if neg_count > 0:
+    st.warning(f"Se eliminaron {int(neg_count)} filas con clorofila negativa del CEA.")
+base = base[pd.to_numeric(base[TARGET], errors="coerce") >= 0].reset_index(drop=True)
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 # Arrays para modelos y matrices
 X_all = base[REQ_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float32)
-# Clip a 0: todo negativo -> 0
-y_all = np.clip(pd.to_numeric(base[TARGET], errors="coerce").to_numpy(), 0.0, None).astype(np.float32)
+y_all = pd.to_numeric(base[TARGET], errors="coerce").to_numpy(dtype=np.float32)
 
 # ------------------------- 2) Curva de entrenamiento + Nota -------------------------
 st.subheader("📈 Análisis de la regresión del modelo")
@@ -433,7 +440,7 @@ with c2:
 st.info(
     """
     Se usan bins `0–2, 2–7, 7–40, ≥40` y una lógica difusa que suaviza los límites.
-    Como las etiquetas se clippean a 0, no se pierde peso si hay predicciones negativas.
+    Las filas con clorofila negativa fueron eliminadas del dataset CEA.
     """
 )
 
@@ -476,6 +483,14 @@ if clicked:
             s = df_pond[c].astype(str).str.strip().str.lower().map(CLEAN_TOKENS).fillna(df_pond[c])
             df_pond[c] = to_numeric_smart(s.astype(str))
 
+    # >>>> ELIMINA FILAS CON CLOROFILA NEGATIVA EN ESTANQUE (SI TRAE COLUMNA REAL)
+    if TARGET in df_pond.columns:
+        neg_pond = (pd.to_numeric(df_pond[TARGET], errors="coerce") < 0)
+        if neg_pond.any():
+            st.warning(f"Estanque: se eliminaron {int(neg_pond.sum())} filas con clorofila negativa.")
+            df_pond = df_pond[pd.to_numeric(df_pond[TARGET], errors="coerce") >= 0].reset_index(drop=True)
+    # <<<<
+
     # Diagnóstico
     st.write("Filas totales en el estanque (antes de filtrar):", len(df_pond))
     if all(col in df_pond.columns for col in REQ_FEATURES):
@@ -501,11 +516,11 @@ if clicked:
     proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
     proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
 
-    # “Verdad” para la matriz difusa, clip a 0 en ambos caminos
+    # “Verdad” para la matriz difusa
     used_proxy = False
     have_true = TARGET in df_pond.columns and df_pond[TARGET].notna().any()
     if have_true:
-        y_true_p = np.clip(pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy(), 0.0, None)
+        y_true_p = pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy()
     else:
         tm  = globals().get("TRAIN_MODEL", None)
         ts  = globals().get("TRAIN_SCALER", None)
@@ -514,7 +529,7 @@ if clicked:
             Xp_s = ts.transform(Xp).astype(np.float32)
             y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
             y_proxy  = np.expm1(y_pred_t) if ylg else y_pred_t
-            y_true_p = np.clip(y_proxy, 0.0, None)
+            y_true_p = y_proxy
             used_proxy = True
         else:
             pred_cls = np.argmax(proba_svm_p_al, axis=1)
