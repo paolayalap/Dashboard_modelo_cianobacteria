@@ -27,6 +27,12 @@ with left:
             económica y escalable.
             </p>
             <p>
+            Debido a que la cianobacteria se compone de distintos pigmentos, la clorofila
+            en estos modelos, fue el indicador principal para la detección.
+            Los parámetros utilizados para los modelos fueron: temperatura, conductividad, 
+            oxígeno disuelto, pH y turbidez. 
+            </p>
+            <p>
             La validación de los modelos se realizó en el estanque del Jardín Botánico 
             de la Universidad del Valle de Guatemala.
             </p>
