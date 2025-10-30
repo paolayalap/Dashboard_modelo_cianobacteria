@@ -18,6 +18,7 @@ with left:
         <div style="text-align: justify;">
             <p>
             <p>
+            <p>
             Actualmente, la detección de cianobacterias en lagos como Amatitlán y Atitlán 
             depende de análisis de laboratorio. Aunque son confiables, requieren tiempo, 
             recursos y personal especializado.
@@ -25,7 +26,9 @@ with left:
             <p>
             Este tablero presenta modelos de aprendizaje automático entrenados con datos 
             de distintos cuerpos de agua para ofrecer una detección más oportuna, 
-            económica y escalable.
+            económica y escalable. Se llevaron acabo métodos de aprendizaje como redes 
+            neuronales, k-Vecinos más Cercanos (KNN por sus siglas en inglés) y 
+            Máquina de Vectores de Soporte (SVM por sus siglas en inglés).
             </p>
             <p>
             Debido a que la cianobacteria se compone de distintos pigmentos, la clorofila
@@ -35,7 +38,7 @@ with left:
             </p>
             <p>
             La validación de los modelos se realizó en el estanque del Jardín Botánico 
-            de la Universidad del Valle de Guatemala.
+            de la Universidad del Valle de Guatemala por medio de dos pruebas pilotos. 
             </p>
         </div>
         """,
