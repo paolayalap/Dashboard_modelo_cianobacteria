@@ -78,7 +78,7 @@ with right:
             " └─ imagenes/estanque.png"
         )
 
-st.markdown("### Presiona un botón para elegir el modelo que desees analizar.")
+st.markdown("### Presiona un botón para elegir el modelo que desees analizar 💻")
 
 # --------- Navegación robusta ----------
 def go(page_stub: str):
