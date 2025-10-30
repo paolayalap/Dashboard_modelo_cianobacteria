@@ -31,7 +31,7 @@ with left:
             <p>
             Se llevaron a cabo métodos de aprendizaje como redes neuronales, k-Vecinos más 
             Cercanos (KNN por sus siglas en inglés) y Máquina de Vectores de Soporte 
-            SVM por sus siglas en inglés).
+            (SVM por sus siglas en inglés).
             </p>
             <p>
             Debido a que la cianobacteria se compone de distintos pigmentos, la clorofila
