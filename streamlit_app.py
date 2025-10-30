@@ -26,9 +26,12 @@ with left:
             <p>
             Este tablero presenta modelos de aprendizaje automático entrenados con datos 
             de distintos cuerpos de agua para ofrecer una detección más oportuna, 
-            económica y escalable. Se llevaron acabo métodos de aprendizaje como redes 
-            neuronales, k-Vecinos más Cercanos (KNN por sus siglas en inglés) y 
-            Máquina de Vectores de Soporte (SVM por sus siglas en inglés).
+            económica y escalable. 
+            </p>
+            <p>
+            Se llevaron a cabo métodos de aprendizaje como redes neuronales, k-Vecinos más 
+            Cercanos (KNN por sus siglas en inglés) y Máquina de Vectores de Soporte 
+            SVM por sus siglas en inglés).
             </p>
             <p>
             Debido a que la cianobacteria se compone de distintos pigmentos, la clorofila
