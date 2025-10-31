@@ -689,9 +689,10 @@ with c_mid:
             # 5) Mostrar ecuación centrada y métrica de ajuste
             st.latex(eq_ltx)
             st.caption(f"Aproximación lineal de la NN sobre datos AMSA.  $R^2$ con la NN: **{r2:.3f}**.")
-            <p>
+            
             st.info(
                     """
+                    <p>
                     **Definición de variables:**
                     - pH = Valor del Potencial de Hidrógeno
                     - T  = Temperatura (°C)
