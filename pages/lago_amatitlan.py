@@ -45,9 +45,10 @@ TRAIN_SCALER = None
 TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
 
-# para el CSV de descarga
-if "df_pred_export" not in st.session_state:
-    st.session_state.df_pred_export = None
+# para los CSV de descarga (una clave por prueba)
+for _k in ("df_pred_export_p1", "df_pred_export_p2"):
+    if _k not in st.session_state:
+        st.session_state[_k] = None
 
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
