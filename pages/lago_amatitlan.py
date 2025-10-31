@@ -53,7 +53,7 @@ for _k in ("df_pred_export_p1", "df_pred_export_p2"):
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
-st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Se muestran matrices difusas para SVM y KNN (ε, SMOTE, tuning). Luego se evalúa con el `dataframe.csv` del estanque.")
+st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Se muestran matrices difusas para SVM y KNN. Luego se evalúa con el `dataframe.csv` del estanque.")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
