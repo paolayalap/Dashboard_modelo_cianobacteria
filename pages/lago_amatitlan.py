@@ -386,98 +386,47 @@ eps_40 = c_eps3.slider("ε alrededor de 40 µg/L", 0.5, 8.0, 2.0, 0.5)
 EPS_TUNED = (eps_2, eps_7, eps_40)
 st.caption("Tip: valores menores reducen el solapamiento Moderado↔Muy alto; si hay mucho ruido, aumenta un poco ε.")
 
-# ------------------------- 3) Matrices difusas (SVM y KNN) + mejoras -------------------------
+# ------------------------- 3) Matrices difusas (SVM y KNN) — SIN SMOTE / SIN TUNING -------------------------
 st.subheader("🧩 Matrices clasificatorias con datos de AMSA")
 
-# Etiquetas discretas para clasificar (estratificar / SMOTE / tuning)
-X_train, X_test, y_train_num, y_test_num = train_test_split(X_all, y_all, test_size=0.20,
-                                                            random_state=42)
+# Etiquetas discretas para clasificar
+X_train, X_test, y_train_num, y_test_num = train_test_split(
+    X_all, y_all, test_size=0.20, random_state=42
+)
 y_train_cls = pd.cut(y_train_num, bins=BINS, labels=LABELS, right=False)
 y_test_cls  = pd.cut(y_test_num,  bins=BINS, labels=LABELS, right=False)
 
-# --------- Opciones de mejora ---------
-cA, cB = st.columns(2)
-use_smote = cA.checkbox("🔁 Rebalancear clases con SMOTE (recomendado)", value=True,
-                        help="Si imbalanced-learn no está instalado, se continúa sin SMOTE.")
-use_tuning = cB.checkbox("🔎 Optimizar hiperparámetros (GridSearchCV)", value=True,
-                         help="Prueba combos de C/γ en SVM y k en KNN.")
+# Pipelines simples y deterministas
+svm_clf = make_pipeline(
+    StandardScaler(),
+    SVC(kernel="rbf", probability=True, class_weight="balanced", random_state=42)
+)
+knn_clf = make_pipeline(
+    StandardScaler(),
+    KNeighborsClassifier(n_neighbors=7, weights="distance")
+)
 
-# --------- Pipelines con/ sin SMOTE ---------
-if use_smote and IMB_OK:
-    # SVM
-    svm_base = ImbPipeline(steps=[
-        ("scaler", StandardScaler()),
-        ("smote", SMOTE(random_state=42, k_neighbors=3)),
-        ("svc", SVC(kernel="rbf", probability=True, class_weight=None, random_state=42))
-    ])
-    # KNN
-    knn_base = ImbPipeline(steps=[
-        ("scaler", StandardScaler()),
-        ("smote", SMOTE(random_state=42, k_neighbors=3)),
-        ("knn", KNeighborsClassifier())
-    ])
-else:
-    if use_smote and not IMB_OK:
-        st.warning("imblearn no está disponible; continuo sin SMOTE.")
-    svm_base = make_pipeline(StandardScaler(),
-                             SVC(kernel="rbf", probability=True, class_weight="balanced", random_state=42))
-    knn_base = make_pipeline(StandardScaler(),
-                             KNeighborsClassifier())
-
-# --------- Tuning (opcional) ---------
-if use_tuning:
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    if IMB_OK and use_smote:
-        svm_param = {
-            "svc__C":     [0.5, 1, 2, 4],
-            "svc__gamma": ["scale", 0.05, 0.1, 0.2]
-        }
-        knn_param = {
-            "knn__n_neighbors": [5, 7, 9, 11],
-            "knn__weights": ["uniform", "distance"]
-        }
-    else:
-        svm_param = {
-            "svc__C":     [0.5, 1, 2, 4],
-            "svc__gamma": ["scale", 0.05, 0.1, 0.2]
-        }
-        knn_param = {
-            "kneighborsclassifier__n_neighbors": [5, 7, 9, 11],
-            "kneighborsclassifier__weights": ["uniform", "distance"]
-        }
-
-    svm_clf = GridSearchCV(svm_base, svm_param, cv=cv, n_jobs=-1, refit=True)
-    knn_clf = GridSearchCV(knn_base, knn_param, cv=cv, n_jobs=-1, refit=True)
-else:
-    svm_clf = svm_base
-    knn_clf = knn_base
-
-# --------- Entrenamiento ---------
+# Entrenamiento simple
 svm_clf.fit(X_train, y_train_cls)
 knn_clf.fit(X_train, y_train_cls)
 
-# --------- Probabilidades alineadas a LABELS ---------
-# Para GridSearchCV, el estimador final está en .best_estimator_ (si se usó)
-svm_final = svm_clf.best_estimator_ if use_tuning else svm_clf
-knn_final = knn_clf.best_estimator_ if use_tuning else knn_clf
+# “Finales” (sin GridSearch)
+svm_final = svm_clf
+knn_final = knn_clf
 
-# Obtener clases internas
-if IMB_OK and use_smote:
-    svm_classes = svm_final.named_steps["svc"].classes_
-    knn_classes = knn_final.named_steps["knn"].classes_
-else:
-    svm_last_name = list(svm_final.named_steps.keys())[-1]
-    knn_last_name = list(knn_final.named_steps.keys())[-1]
-    svm_classes = svm_final.named_steps[svm_last_name].classes_
-    knn_classes = knn_final.named_steps[knn_last_name].classes_
+# Obtener clases internas (último paso del pipeline)
+svm_last_name = list(svm_final.named_steps.keys())[-1]
+knn_last_name = list(knn_final.named_steps.keys())[-1]
+svm_classes = svm_final.named_steps[svm_last_name].classes_
+knn_classes = knn_final.named_steps[knn_last_name].classes_
 
+# Probabilidades alineadas a LABELS
 proba_svm = svm_final.predict_proba(X_test)
 proba_knn = knn_final.predict_proba(X_test)
-
 proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS)
 proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 
-# --------- Matrices difusas con EPS_TUNED ---------
+# Matrices difusas con EPS_TUNED (sliders que ya tienes)
 cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4, eps=EPS_TUNED)
 cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4, eps=EPS_TUNED)
 
@@ -488,7 +437,6 @@ with c1:
         use_container_width=True
     )
     st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
-
 with c2:
     st.pyplot(
         plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — KNN (AMSA)"),
@@ -496,12 +444,13 @@ with c2:
     )
     st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
 
+# Nota breve (actualizada)
 st.info(
     """
-    **Nota:** Se aplican mejoras para reducir la confusión entre clases intermedias:
-    1) *SMOTE* (si está disponible) para balancear clases raras,
-    2) *GridSearchCV* para ajustar hiperparámetros,
-    3) Control de ε para ajustar el solapamiento en los umbrales 2, 7 y 40 µg/L.
+    **Nota:**
+    - SVM (RBF) con `class_weight="balanced"` para compensar desbalance.
+    - KNN con `n_neighbors=7`, `weights="distance"`.
+    - Los umbrales difusos (ε) son ajustables con los sliders.
     """
 )
 
