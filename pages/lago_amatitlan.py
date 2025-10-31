@@ -695,7 +695,7 @@ with c_mid:
             # Nota con definiciones (Markdown + LaTeX inline)
             st.info(
                 "**Definición de variables:**\n"
-                "- $\\hat{y}$:   Valor predicho o estimado por el modelo de redes neuronales"
+                "- $\\hat{y}$:   Valor predicho o estimado por el modelo de NN"
                 "- $\\mathrm{pH}$:   Potencial de Hidrógeno\n"
                 "- $\\mathbf{T}$:    Temperatura $(^{\\circ}\\!C)$\n"
                 "- $\\mathbf{EC}$:   Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
