@@ -682,7 +682,6 @@ with c_mid:
                 r" = "
                 f"{intercept:.4g} "
                 + " ".join(terms)
-                + r" \boldsymbol{\mathit{t}}"
                 + r"\quad\text{[}\mu\text{g/L]}"
             )
 
