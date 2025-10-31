@@ -682,10 +682,20 @@ with c_mid:
                 r" = "
                 f"{intercept:.4g} "
                 + " ".join(terms)
+                + r" \boldsymbol{\mathit{t}}"
                 + r"\quad\text{[}\mu\text{g/L]}"
             )
 
             # 5) Mostrar ecuación centrada y métrica de ajuste
             st.latex(eq_ltx)
             st.caption(f"Aproximación lineal de la NN sobre datos AMSA.  $R^2$ con la NN: **{r2:.3f}**.")
+            <p>
+            st.info("**Definición de variables:**
+                    $\\hat{y}$ = Valor predicho o estimado por el modelo de redes neuronales
+                    pH = Valor del Potencial de Hidrógeno
+                    T  = Temperatura (°C)
+                    EC = Conductividad (µS/cm)
+                    DO = Oxígeno disuelto (mg/L)
+                    t  = Turbidez (NTU)
+                    ")
 
