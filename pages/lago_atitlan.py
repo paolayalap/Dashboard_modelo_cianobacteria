@@ -331,16 +331,19 @@ with col_curve:
             TRAIN_SCALER = None; TRAIN_MODEL = None; TRAIN_Y_LOG1P = False
 
 with col_note:
-    st.info("Durante las primeras épocas, el modelo muestra pérdidas altas que descienden rápidamente, 
-            indicando que está aprendiendo los patrones iniciales de los datos.
-            <p>
-            Entre las épocas 50 y 200, la disminución de la pérdida es más gradual y las curvas de 
-            entrenamiento y validación permanecen cercanas, lo que evidencia una buena generalización 
-            sobreajuste.
-            <p>
-            Finalmente, a partir de la época 200, ambas curvas se estabilizan alrededor de una pérdida 
-            baja (≈0.015–0.018), señal de que el modelo ha alcanzado la convergencia y ya no mejora de 
-            forma significativa.")
+    st.info(
+    """Durante las primeras épocas, el modelo muestra pérdidas altas que descienden rápidamente,
+indicando que está aprendiendo los patrones iniciales de los datos.
+
+Entre las épocas 50 y 200, la disminución de la pérdida es más gradual y las curvas de
+entrenamiento y validación permanecen cercanas, lo que evidencia buena generalización
+(sin sobreajuste notable).
+
+Finalmente, a partir de la época 200, ambas curvas se estabilizan alrededor de una pérdida
+baja (≈ 0.015–0.018), señal de que el modelo ha alcanzado la convergencia y ya no mejora de
+forma significativa."""
+)
+
 
 # ------------------------- 3) Matrices clasificatorias -------------------------
 st.subheader("🧩 Matrices clasificatorias con datos de CEA")
