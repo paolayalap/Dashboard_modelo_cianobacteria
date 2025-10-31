@@ -622,3 +622,70 @@ run_prediction_block(
     boton_desc_label="⬇️ Descargar predicciones — 2ª prueba (.csv)",
     plot_suffix="2ª prueba"
 )
+
+
+# ============================== 
+# Botón centrado: Ecuación aproximada de la NN
+# ==============================
+st.divider()
+c_left, c_mid, c_right = st.columns([1, 2, 1])
+
+with c_mid:
+    gen_eq = st.button("🧮 Generar ecuación aproximada del modelo (NN)", use_container_width=True, key="btn_eq_nn")
+
+    if gen_eq:
+        # Verificar que la NN esté disponible (se entrena en la sección de la curva)
+        if not (KERAS_OK and (TRAIN_MODEL is not None) and (TRAIN_SCALER is not None)):
+            st.warning("La red neuronal no está disponible. Entrena primero (sección 'Análisis de la regresión del modelo').")
+        else:
+            # 1) Construir dataset para aproximar la NN (usar todas las filas válidas del set AMSA 'base')
+            X_df = base[REQ_FEATURES].copy()
+            X_np = X_df.values
+
+            # 2) Predicciones de la NN (en unidades originales de clorofila)
+            X_s = TRAIN_SCALER.transform(X_np)
+            y_nn_t = TRAIN_MODEL.predict(X_s, verbose=0).ravel()
+            y_nn = np.expm1(y_nn_t) if TRAIN_Y_LOG1P else y_nn_t  # deshacer log1p si aplica
+
+            # 3) Ajustar un modelo lineal (Ridge) que imite a la NN en el espacio original
+            from sklearn.linear_model import Ridge
+            from sklearn.metrics import r2_score
+
+            reg = Ridge(alpha=1.0, fit_intercept=True, random_state=42)
+            reg.fit(X_np, y_nn)
+
+            y_lin = reg.predict(X_np)
+            r2 = r2_score(y_nn, y_lin)
+
+            # 4) Construir la ecuación en LaTeX (variables en negrita y cursiva)
+            #    Mapeo de nombres de columnas -> símbolos cortos
+            sym_map = {
+                "pH": r"\mathrm{pH}",
+                "Temperatura (°C)": r"T",
+                "Conductividad (μS/cm)": r"EC",
+                "Oxígeno Disuelto (mg/L)": r"DO",
+                "Turbidez (NTU)": r"NTU",
+            }
+
+            intercept = reg.intercept_
+            coefs = reg.coef_
+
+            # Términos tipo  +a_i * x_i   con formato +- y 4 cifras significativas
+            terms = []
+            for coef, col in zip(coefs, REQ_FEATURES):
+                sym = sym_map.get(col, col.replace(" ", r"\ "))
+                terms.append(f"{coef:+.4g}\\,\\boldsymbol{{\\mathit{{{sym}}}}}")
+
+            # Armar ecuación completa
+            eq_ltx = (
+                r"\boldsymbol{\mathit{\hat{y}}}"
+                r" = "
+                f"{intercept:.4g} "
+                + " ".join(terms)
+                + r"\quad\text{[}\mu\text{g/L]}"
+            )
+
+            # 5) Mostrar ecuación centrada y métrica de ajuste
+            st.latex(eq_ltx)
+            st.caption(f"Aproximación lineal de la NN sobre datos AMSA.  $R^2$ con la NN: **{r2:.3f}**.")
+
