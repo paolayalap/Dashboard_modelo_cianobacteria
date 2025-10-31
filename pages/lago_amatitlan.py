@@ -19,8 +19,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 
-from imblearn.pipeline import Pipeline as ImbPipeline
-from imblearn.over_sampling import SMOTE
+#from imblearn.pipeline import Pipeline as ImbPipeline
+#from imblearn.over_sampling import SMOTE
 
 
 # ====== Opcional (para curva de entrenamiento con red simple) ======
