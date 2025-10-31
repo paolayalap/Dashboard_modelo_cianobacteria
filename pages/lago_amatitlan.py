@@ -482,16 +482,14 @@ with c1:
         plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz de confusión con lógica difusa — SVM (AMSA)"),
         use_container_width=True
     )
-    st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}"
-               + (f" | Mejores params: {getattr(svm_clf, 'best_params_', {})}" if use_tuning else ""))
+    st.caption(f"Suma de pesos (SVM): {cm_svm_fuzzy.sum():.2f}")
 
 with c2:
     st.pyplot(
         plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — KNN (AMSA)"),
         use_container_width=True
     )
-    st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}"
-               + (f" | Mejores params: {getattr(knn_clf, 'best_params_', {})}" if use_tuning else ""))
+    st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
 
 st.info(
     """
