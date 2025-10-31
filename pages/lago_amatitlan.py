@@ -33,12 +33,12 @@ except Exception:
     KERAS_OK = False
 
 # --- mejoras: balanceo (opcional) ---
-try:
-    from imblearn.over_sampling import SMOTE
-    from imblearn.pipeline import Pipeline as ImbPipeline
-    IMB_OK = True
-except Exception:
-    IMB_OK = False
+#try:
+#    from imblearn.over_sampling import SMOTE
+#    from imblearn.pipeline import Pipeline as ImbPipeline
+#    IMB_OK = True
+#except Exception:
+#    IMB_OK = False
 
 # --- Estado global para el modelo de la curva ---
 TRAIN_SCALER = None
