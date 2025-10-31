@@ -695,10 +695,11 @@ with c_mid:
             # Nota con definiciones (Markdown + LaTeX inline)
             st.info(
                 "**Definición de variables:**\n"
-                "- $\\mathrm{pH}$: Potencial de Hidrógeno\n"
-                "- $\\mathbf{T}$: Temperatura $(^{\\circ}\\!C)$\n"
-                "- $\\mathbf{EC}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
-                "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
-                "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
+                "- $\\hat{y}$:   Valor predicho o estimado por el modelo de redes neuronales"
+                "- $\\mathrm{pH}$:   Potencial de Hidrógeno\n"
+                "- $\\mathbf{T}$:    Temperatura $(^{\\circ}\\!C)$\n"
+                "- $\\mathbf{EC}$:   Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
+                "- $\\mathbf{DO}$:   Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
+                "- $\\boldsymbol{\\mathit{t}}$:   Turbidez $(\\mathrm{NTU})$"
             )
 
