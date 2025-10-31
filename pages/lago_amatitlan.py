@@ -19,6 +19,10 @@ from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 
+from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.over_sampling import SMOTE
+
+
 # ====== Opcional (para curva de entrenamiento con red simple) ======
 try:
     import tensorflow as tf
@@ -500,129 +504,171 @@ st.info(
     """
 )
 
-# ------------------------- 4) Botón: Predecir con datos del estanque -------------------------
-st.subheader("🧪 Predicción y matrices con datos del estanque")
 
-clicked = st.button("🔮 Predecir con datos del estanque")
-if clicked:
-    # 1) Ruta / carga del CSV del estanque
-    DEFAULT_POND = DEFAULT_DIR_POND / "dataframe.csv"
-    pond_path_input = st.text_input("Ruta a **dataframe del estanque**", value=str(DEFAULT_POND), key="pond_path")
-    pond_path = Path(pond_path_input)
+# -----------------------------------------------------------------------------------
+# Helper reutilizable para predecir + matrices + preparar CSV de descarga
+# -----------------------------------------------------------------------------------
+def run_prediction_block(
+    *,                      # exigir argumentos por nombre
+    variant: str,           # "p1" o "p2"
+    default_filename: str,  # "dataframe.csv" o "dataframe2.csv"
+    session_key_df: str,    # "df_pred_export_p1" o "df_pred_export_p2"
+    boton_pred_label: str,  # texto del botón de predicción
+    boton_desc_label: str,  # texto del botón de descarga
+    plot_suffix: str        # "1ª prueba" o "2ª prueba"
+):
+    clicked = st.button(boton_pred_label, key=f"btn_pred_{variant}", use_container_width=True)
+    if clicked:
+        # 1) Ruta / carga del CSV del estanque
+        default_pond = DEFAULT_DIR_POND / default_filename
+        pond_path_input = st.text_input(
+            f"Ruta a **{default_filename}**",
+            value=str(default_pond),
+            key=f"pond_path_{variant}",
+        )
+        pond_path = Path(pond_path_input)
 
-    if not pond_path.exists():
-        st.warning("No encuentro **dataframe.csv** en la ruta indicada. Sube el archivo:")
-        up2 = st.file_uploader("Sube dataframe.csv", type=["csv"], key="pond")
-        if up2 is None:
+        if not pond_path.exists():
+            st.warning(f"No encuentro **{default_filename}** en la ruta indicada. Sube el archivo:")
+            up2 = st.file_uploader(f"Sube {default_filename}", type=["csv"], key=f"pond_uploader_{variant}")
+            if up2 is None:
+                st.stop()
+            df_pond = read_csv_robust(up2)
+        else:
+            df_pond = read_csv_robust(pond_path)
+
+        # 2) Normalización de encabezados y numéricos
+        df_pond = normalize_columns(df_pond)
+        have_true = TARGET in df_pond.columns
+
+        for c in REQ_FEATURES + ([TARGET] if have_true else []):
+            if c in df_pond.columns:
+                df_pond[c] = to_numeric_smart(df_pond[c])
+
+        df_pond = df_pond.dropna(subset=REQ_FEATURES).reset_index(drop=True)
+        if df_pond.empty:
+            st.error("El archivo del estanque no tiene filas válidas tras limpieza.")
             st.stop()
-        df_pond = read_csv_robust(up2)
-    else:
-        df_pond = read_csv_robust(pond_path)
 
-    # 2) Normalización de encabezados y numéricos
-    df_pond = normalize_columns(df_pond)
-    have_true = TARGET in df_pond.columns
+        # 3) Probabilidades sobre X del estanque
+        Xp = df_pond[REQ_FEATURES].values
 
-    for c in REQ_FEATURES + ([TARGET] if have_true else []):
-        if c in df_pond.columns:
-            df_pond[c] = to_numeric_smart(df_pond[c])
+        proba_svm_p = svm_final.predict_proba(Xp)
+        proba_knn_p = knn_final.predict_proba(Xp)
+        proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
+        proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
 
-    df_pond = df_pond.dropna(subset=REQ_FEATURES).reset_index(drop=True)
-    if df_pond.empty:
-        st.error("El archivo del estanque no tiene filas válidas tras limpieza.")
-        st.stop()
+        # 4) "Verdad" para la matriz difusa
+        if have_true:
+            y_true_p = pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy()
+            used_proxy = False
+        else:
+            tm  = globals().get("TRAIN_MODEL", None)
+            ts  = globals().get("TRAIN_SCALER", None)
+            ylg = globals().get("TRAIN_Y_LOG1P", False)
 
-    # 3) Matrices con SVM/KNN (probabilidades sobre X del estanque)
-    Xp = df_pond[REQ_FEATURES].values
+            if KERAS_OK and (tm is not None) and (ts is not None):
+                Xp_s = ts.transform(Xp)
+                y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
+                y_proxy  = np.expm1(y_pred_t) if ylg else y_pred_t
+                y_true_p = np.clip(y_proxy, 0.0, None)
+                used_proxy = True
+            else:
+                pred_cls = np.argmax(proba_svm_p_al, axis=1)
+                centers  = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados
+                y_true_p = centers[pred_cls]
+                used_proxy = True
 
-    proba_svm_p = svm_final.predict_proba(Xp)
-    proba_knn_p = knn_final.predict_proba(Xp)
-    proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
-    proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
+        # 5) Matrices difusas (mismo EPS_TUNED)
+        cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4, eps=EPS_TUNED)
+        cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4, eps=EPS_TUNED)
 
-    # 4) "Verdad" para la matriz difusa
-    if have_true:
-        y_true_p = pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy()
-        used_proxy = False
-    else:
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            st.pyplot(
+                plot_confusion_matrix_pretty_float(cm_svm_p, LABELS,
+                    f"Matriz de confusión con lógica difusa — SVM (Estanque • {plot_suffix})"),
+                use_container_width=True
+            )
+            st.caption(f"Suma de pesos (SVM): {cm_svm_p.sum():.2f}")
+        with cc2:
+            st.pyplot(
+                plot_confusion_matrix_pretty_float(cm_knn_p, LABELS,
+                    f"Matriz de confusión con lógica difusa — KNN (Estanque • {plot_suffix})"),
+                use_container_width=True
+            )
+            st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
+
+        if used_proxy and not have_true:
+            st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
+
+        st.success("Listo. Matrices del estanque generadas.")
+
+        # ========= Predicciones continuas para exportar =========
         tm  = globals().get("TRAIN_MODEL", None)
         ts  = globals().get("TRAIN_SCALER", None)
         ylg = globals().get("TRAIN_Y_LOG1P", False)
 
         if KERAS_OK and (tm is not None) and (ts is not None):
             Xp_s = ts.transform(Xp)
-            y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
-            y_proxy  = np.expm1(y_pred_t) if ylg else y_pred_t
-            y_true_p = np.clip(y_proxy, 0.0, None)
-            used_proxy = True
+            yhat_t = tm.predict(Xp_s, verbose=0).ravel()
+            yhat   = np.expm1(yhat_t) if ylg else yhat_t
         else:
-            pred_cls = np.argmax(proba_svm_p_al, axis=1)
-            centers  = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados
-            y_true_p = centers[pred_cls]
-            used_proxy = True
+            centers = np.array([1.0, 4.5, 20.0, 60.0])
+            yhat = proba_svm_p_al @ centers
 
-    # 5) Matrices difusas con esas "verdades" (mismo EPS_TUNED)
-    cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4, eps=EPS_TUNED)
-    cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4, eps=EPS_TUNED)
+        yhat = np.clip(yhat, 0.0, None)
 
-    cc1, cc2 = st.columns(2)
-    with cc1:
-        st.pyplot(
-            plot_confusion_matrix_pretty_float(cm_svm_p, LABELS, "Matriz de confusión con lógica difusa — SVM (Estanque)"),
-            use_container_width=True
-        )
-        st.caption(f"Suma de pesos (SVM): {cm_svm_p.sum():.2f}")
-    with cc2:
-        st.pyplot(
-            plot_confusion_matrix_pretty_float(cm_knn_p, LABELS, "Matriz de confusión con lógica difusa — KNN (Estanque)"),
-            use_container_width=True
-        )
-        st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
+        # DataFrame a exportar → session_state
+        df_pred_export = df_pond.copy()
+        df_pred_export["Clorofila_predicha (μg/L)"] = yhat
+        st.session_state[session_key_df] = df_pred_export
 
-    if used_proxy and not have_true:
-        st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
+    # ========= Botón de descarga (si ya hay predicciones) =========
+    df_pred_ready = st.session_state.get(session_key_df)
+    cdl = st.columns(2)[1]   # botón al lado derecho
+    with cdl:
+        if isinstance(df_pred_ready, pd.DataFrame) and not df_pred_ready.empty:
+            st.download_button(
+                boton_desc_label,
+                data=df_pred_ready.to_csv(index=False).encode("utf-8"),
+                file_name=f"predicciones_{variant}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key=f"dl_{variant}"
+            )
+        else:
+            st.download_button(
+                boton_desc_label,
+                data=b"",
+                disabled=True,
+                help="Primero genera las predicciones con el botón correspondiente.",
+                use_container_width=True,
+                key=f"dl_{variant}"
+            )
 
-    st.success("Listo. Matrices del estanque generadas.")
 
-    # ========= Predicciones continuas para exportar =========
-    tm  = globals().get("TRAIN_MODEL", None)
-    ts  = globals().get("TRAIN_SCALER", None)
-    ylg = globals().get("TRAIN_Y_LOG1P", False)
+# ------------------------- 4) Predicciones con datos del estanque -------------------------
+st.subheader("🧪 Predicción de clorofila con datos del estanque")
 
-    if KERAS_OK and (tm is not None) and (ts is not None):
-        Xp_s = ts.transform(Xp)
-        yhat_t = tm.predict(Xp_s, verbose=0).ravel()
-        yhat   = np.expm1(yhat_t) if ylg else yhat_t
-    else:
-        centers = np.array([1.0, 4.5, 20.0, 60.0])
-        yhat = proba_svm_p_al @ centers
+# Bloque 1: 1ª prueba (dataframe.csv)
+run_prediction_block(
+    variant="p1",
+    default_filename="dataframe.csv",
+    session_key_df="df_pred_export_p1",
+    boton_pred_label="🔮 Predecir — 1ª prueba (dataframe.csv)",
+    boton_desc_label="⬇️ Descargar predicciones — 1ª prueba (.csv)",
+    plot_suffix="1ª prueba"
+)
 
-    yhat = np.clip(yhat, 0.0, None)
+st.divider()
 
-    # DataFrame a exportar
-    df_pred_export = df_pond.copy()
-    df_pred_export["Clorofila_predicha (μg/L)"] = yhat
-
-    # guardar para el botón de descarga
-    st.session_state.df_pred_export = df_pred_export
-
-# ========= Botón inferior: Descargar CSV =========
-col_right = st.columns(2)[1]
-with col_right:
-    df_pred = st.session_state.get("df_pred_export")
-    if isinstance(df_pred, pd.DataFrame) and not df_pred.empty:
-        st.download_button(
-            "⬇️ Descargar predicciones (.csv)",
-            data=df_pred.to_csv(index=False).encode("utf-8"),
-            file_name="predicciones_estanque.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
-    else:
-        st.download_button(
-            "⬇️ Descargar predicciones (.csv)",
-            data=b"",
-            disabled=True,
-            help="Primero presiona 'Predecir con datos del estanque'.",
-            use_container_width=True,
-        )
+# Bloque 2: 2ª prueba (dataframe2.csv)
+run_prediction_block(
+    variant="p2",
+    default_filename="dataframe2.csv",
+    session_key_df="df_pred_export_p2",
+    boton_pred_label="🔮 Predecir — 2ª prueba (dataframe2.csv)",
+    boton_desc_label="⬇️ Descargar predicciones — 2ª prueba (.csv)",
+    plot_suffix="2ª prueba"
+)
