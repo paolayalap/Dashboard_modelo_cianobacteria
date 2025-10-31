@@ -332,7 +332,7 @@ with col_curve:
 
 with col_note:
     st.info(
-    """Durante las primeras épocas, el modelo muestra pérdidas altas que descienden rápidamente,
+    """**Nota: **Durante las primeras épocas, el modelo muestra pérdidas altas que descienden rápidamente,
 indicando que está aprendiendo los patrones iniciales de los datos.
 
 Entre las épocas 50 y 200, la disminución de la pérdida es más gradual y las curvas de
