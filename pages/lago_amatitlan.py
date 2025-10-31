@@ -664,7 +664,7 @@ with c_mid:
                 "Temperatura (°C)": r"T",
                 "Conductividad (μS/cm)": r"EC",
                 "Oxígeno Disuelto (mg/L)": r"DO",
-                "Turbidez (NTU)": r"NTU",
+                "Turbidez (NTU)": r"t",
             }
 
             intercept = reg.intercept_
@@ -694,12 +694,13 @@ with c_mid:
 
             # Nota con definiciones (Markdown + LaTeX inline)
             st.info(
-                "**Definición de variables:**\n"
-                "- $\\hat{y}$:   Valor predicho o estimado por el modelo de NN"
-                "- $\\mathrm{pH}$:   Potencial de Hidrógeno\n"
-                "- $\\mathbf{T}$:    Temperatura $(^{\\circ}\\!C)$\n"
-                "- $\\mathbf{EC}$:   Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
-                "- $\\mathbf{DO}$:   Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
-                "- $\\boldsymbol{\\mathit{t}}$:   Turbidez $(\\mathrm{NTU})$"
-            )
+                    "**Definición de variables:**\n"
+                    "- $\\hat{y}$: Valor predicho o estimado por el modelo de NN.\n"
+                    "- $\\mathrm{pH}$: Potencial de Hidrógeno.\n"
+                    "- $\\mathbf{T}$: Temperatura $(^{\\circ}\\!C)$\n"
+                    "- $\\mathbf{EC}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
+                    "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
+                    "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
+                )
+
 
