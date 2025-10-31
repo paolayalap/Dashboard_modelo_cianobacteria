@@ -690,11 +690,15 @@ with c_mid:
             st.latex(eq_ltx)
             st.caption(f"Aproximación lineal de la NN sobre datos AMSA.  $R^2$ con la NN: **{r2:.3f}**.")
             
-            st.info("**Definición de variables:**
-                       pH = Valor del Potencial de Hidrógeno
-                       T  = Temperatura (°C)
-                       EC = Conductividad (µS/cm)
-                       DO = Oxígeno disuelto (mg/L)
-                       t  = Turbidez (NTU)
-                    ")
+            st.write("")
+
+            # Nota con definiciones (Markdown + LaTeX inline)
+            st.info(
+                "**Definición de variables:**\n"
+                "- $\\mathrm{pH}$: Potencial de Hidrógeno\n"
+                "- $\\mathbf{T}$: Temperatura $(^{\\circ}\\!C)$\n"
+                "- $\\mathbf{EC}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
+                "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
+                "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
+            )
 
