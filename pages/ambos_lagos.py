@@ -409,7 +409,7 @@ proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4)
 cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4)
 
-c1, c2 = st.columns(2)
+c1, c2, c3 = st.columns(3)
 with c1:
     st.pyplot(
         plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz de confusión con lógica difusa — SVM (CEA + AMSA)"),
@@ -428,19 +428,20 @@ EPS_TUNED = DEFAULT_EPS
 val_true = globals().get("VAL_y_true", None)
 val_pred = globals().get("VAL_yhat_cont", None)
 
-if (val_true is not None) and (val_pred is not None):
-    proba_nn = np.vstack([fuzzy_memberships_scalar(v, eps=EPS_TUNED) for v in val_pred])
-    cm_nn_fuzzy = fuzzy_confusion_from_probs(val_true, proba_nn, n_classes=4, eps=EPS_TUNED)
+with c3:
+    if (val_true is not None) and (val_pred is not None):
+        proba_nn = np.vstack([fuzzy_memberships_scalar(v, eps=EPS_TUNED) for v in val_pred])
+        cm_nn_fuzzy = fuzzy_confusion_from_probs(val_true, proba_nn, n_classes=4, eps=EPS_TUNED)
 
-    st.pyplot(
-        plot_confusion_matrix_pretty_float(
-            cm_nn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — NN (validación)"
-        ),
-        use_container_width=True
-    )
-    st.caption(f"Suma de pesos (NN): {cm_nn_fuzzy.sum():.2f}")
-else:
-    st.info("💡 Entrena la NN arriba para habilitar la matriz difusa de **validación (NN)**.")
+        st.pyplot(
+            plot_confusion_matrix_pretty_float(
+                cm_nn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — NN (validación)"
+            ),
+            use_container_width=True
+        )
+        st.caption(f"Suma de pesos (NN): {cm_nn_fuzzy.sum():.2f}")
+    else:
+        st.info("💡 Entrena la NN arriba para habilitar la matriz difusa de **validación (NN)**.")
 
 st.info(
     """
