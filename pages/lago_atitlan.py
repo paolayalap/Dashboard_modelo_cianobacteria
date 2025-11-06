@@ -66,6 +66,7 @@ _def_map = {
     "clorofila (μg/l)": TARGET,
     "clorofila (ug/l)": TARGET,
     "clorofila": TARGET,
+    
 }
 
 def _strip_accents(text: str) -> str:
@@ -670,3 +671,50 @@ with c_mid:
                 "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
             )
 
+
+# ------------------------- 5) Gráfica Clorofila vs Ficocianina -------------------------
+st.divider()
+st.subheader("🌿 Relación entre Clorofila y Ficocianina (CEA + AMSA)")
+
+DATA_CEA_AMSA = Path("datasets_lagos/DATOS CEA Y AMSA.csv")
+
+if not DATA_CEA_AMSA.exists():
+    st.warning("No encuentro el archivo **DATOS CEA Y AMSA.csv** en la carpeta datasets_lagos. Sube el archivo manualmente:")
+    up_cya = st.file_uploader("Sube DATOS CEA Y AMSA.csv", type=["csv"])
+    if up_cya is not None:
+        df_cya = read_csv_robust(up_cya)
+    else:
+        st.stop()
+else:
+    df_cya = read_csv_robust(DATA_CEA_AMSA)
+
+df_cya = normalize_columns(df_cya)
+
+# Detectar columnas de clorofila y ficocianina
+cand_chla = [c for c in df_cya.columns if re.search("clorofila|chlorophyll", _canon(c))]
+cand_pcy  = [c for c in df_cya.columns if re.search("ficocianina|phycocyanin", _canon(c))]
+
+if not cand_chla or not cand_pcy:
+    st.error("No se encontraron columnas de **clorofila** y **ficocianina** en el archivo.")
+    st.stop()
+
+col_chla = cand_chla[0]
+col_pcy  = cand_pcy[0]
+
+# Conversión numérica y eliminación de negativos
+df_cya[col_chla] = to_numeric_smart(df_cya[col_chla])
+df_cya[col_pcy]  = to_numeric_smart(df_cya[col_pcy])
+
+mask_valid = (df_cya[col_chla] >= 0) & (df_cya[col_pcy] >= 0)
+df_cya = df_cya.loc[mask_valid].dropna(subset=[col_chla, col_pcy])
+
+if df_cya.empty:
+    st.warning("No hay datos válidos después de eliminar valores negativos o nulos.")
+else:
+    fig, ax = plt.subplots(figsize=(7, 5))
+    ax.scatter(df_cya[col_chla], df_cya[col_pcy], alpha=0.6, s=30, color="#2ca25f", edgecolor="white")
+    ax.set_xlabel("Clorofila (μg/L)")
+    ax.set_ylabel("Ficocianina (μg/L)")
+    ax.set_title("Relación entre Clorofila y Ficocianina (DATOS CEA + AMSA)")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    st.pyplot(fig, use_container_width=True)
