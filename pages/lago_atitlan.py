@@ -700,8 +700,8 @@ def _find_col(df, keywords):
             return c
     return None
 
-col_chla_auto = _find_col(df_cya, ["Clorofila"]) or _find_col(df_cya, ["chlorophyll"])
-col_pcy_auto  = _find_col(df_cya, ["Ficocianina"]) or _find_col(df_cya, ["phycocyanin"])
+col_chla_auto = _find_col(df_cya, ["clorofila"]) or _find_col(df_cya, ["chlorophyll"])
+col_pcy_auto  = _find_col(df_cya, ["ficocianina"]) or _find_col(df_cya, ["phycocyanin"])
 
 # Si no detecta, permite selección manual
 if not col_chla_auto or not col_pcy_auto:
