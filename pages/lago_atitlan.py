@@ -674,6 +674,7 @@ with c_mid:
 
 
 
+
 # ------------------------- 5) Gráfica Clorofila vs Ficocianina (escala logarítmica) -------------------------
 st.divider()
 st.subheader("🌿 Relación entre Clorofila y Ficocianina (CEA) — Escala logarítmica")
