@@ -435,7 +435,7 @@ with c3:
 
         st.pyplot(
             plot_confusion_matrix_pretty_float(
-                cm_nn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — NN (validación)"
+                cm_nn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — NN (CEA + AMSA)"
             ),
             use_container_width=True
         )
@@ -529,29 +529,42 @@ def run_prediction_block(
         # 5) Matrices difusas (mismo EPS)
         cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4, eps=DEFAULT_EPS)
         cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4, eps=DEFAULT_EPS)
-
-        cc1, cc2 = st.columns(2)
+        
+        # ===== NUEVO BLOQUE =====
+        tm  = globals().get("TRAIN_MODEL", None)
+        ts  = globals().get("TRAIN_SCALER", None)
+        ylg = globals().get("TRAIN_Y_LOG1P", False)
+        
+        if KERAS_OK and (tm is not None) and (ts is not None):
+            Xp_s = ts.transform(Xp)
+            yhat_nn_t = tm.predict(Xp_s, verbose=0).ravel()
+            yhat_nn = np.expm1(yhat_nn_t) if ylg else yhat_nn_t
+            proba_nn_p = np.vstack([fuzzy_memberships_scalar(v, eps=DEFAULT_EPS) for v in yhat_nn])
+            cm_nn_p = fuzzy_confusion_from_probs(y_true_p, proba_nn_p, n_classes=4, eps=DEFAULT_EPS)
+        else:
+            cm_nn_p = None
+        # =========================
+        
+        # Ahora usa tres columnas para alinear las tres matrices
+        cc1, cc2, cc3 = st.columns(3)
         with cc1:
-            st.pyplot(
-                plot_confusion_matrix_pretty_float(
-                    cm_svm_p, LABELS,
-                    f"Matriz de confusión con lógica difusa — SVM (Estanque • {plot_suffix})"
-                ),
-                use_container_width=True
-            )
+            st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_p, LABELS,
+                      f"Matriz difusa — SVM (Estanque • {plot_suffix})"), use_container_width=True)
             st.caption(f"Suma de pesos (SVM): {cm_svm_p.sum():.2f}")
+        
         with cc2:
-            st.pyplot(
-                plot_confusion_matrix_pretty_float(
-                    cm_knn_p, LABELS,
-                    f"Matriz de confusión con lógica difusa — KNN (Estanque • {plot_suffix})"
-                ),
-                use_container_width=True
-            )
+            st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_p, LABELS,
+                      f"Matriz difusa — KNN (Estanque • {plot_suffix})"), use_container_width=True)
             st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
+        
+        with cc3:
+            if cm_nn_p is not None:
+                st.pyplot(plot_confusion_matrix_pretty_float(cm_nn_p, LABELS,
+                          f"Matriz difusa — NN (Estanque • {plot_suffix})"), use_container_width=True)
+                st.caption(f"Suma de pesos (NN): {cm_nn_p.sum():.2f}")
+            else:
+                st.info("NN no entrenada o no disponible.")
 
-        if used_proxy and not have_true:
-            st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
 
         st.success("Listo. Matrices del estanque generadas.")
 
