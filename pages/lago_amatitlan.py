@@ -1,6 +1,6 @@
 # ==========================================================================
-# Streamlit: Visualización AMSA + Entrenamiento + Fuzzy Confusion (SVM/KNN)
-# Con mejoras: sliders de ε, SMOTE opcional y tuning de hiperparámetros
+# Streamlit: Visualización AMSA + Entrenamiento + Fuzzy Confusion (SVM/KNN/NN)
+# Con mejoras: sliders de ε y matriz NN en validación y en pruebas del estanque
 # ==========================================================================
 
 import os, io, re, unicodedata
@@ -13,17 +13,13 @@ from matplotlib.patches import Rectangle
 
 import streamlit as st
 
-from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 
-#from imblearn.pipeline import Pipeline as ImbPipeline
-#from imblearn.over_sampling import SMOTE
-
-
-# ====== Opcional (para curva de entrenamiento con red simple) ======
+# ====== Red neuronal opcional ======
 try:
     import tensorflow as tf
     from tensorflow import keras
@@ -32,18 +28,14 @@ try:
 except Exception:
     KERAS_OK = False
 
-# --- mejoras: balanceo (opcional) ---
-#try:
-#    from imblearn.over_sampling import SMOTE
-#    from imblearn.pipeline import Pipeline as ImbPipeline
-#    IMB_OK = True
-#except Exception:
-#    IMB_OK = False
-
-# --- Estado global para el modelo de la curva ---
+# ------------------------- Estado global -------------------------
 TRAIN_SCALER = None
 TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
+
+# Buffers para matriz NN (validación)
+VAL_y_true = None        # y verdadera (numérica) del split de validación
+VAL_yhat_cont = None     # predicción continua de la NN en validación
 
 # para los CSV de descarga (una clave por prueba)
 for _k in ("df_pred_export_p1", "df_pred_export_p2"):
@@ -53,7 +45,7 @@ for _k in ("df_pred_export_p1", "df_pred_export_p2"):
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
-st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Se muestran matrices difusas para SVM y KNN. Luego se evalúa con el `dataframe.csv` del estanque.")
+st.caption("Se entrena un modelo con **DATOS AMSA.csv**. Se muestran matrices difusas para SVM, KNN y NN. Luego se evalúa con los archivos del estanque (1ª y 2ª prueba).")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
@@ -69,20 +61,15 @@ LABELS = ["Muy bajo (0–2)", "Bajo (2–7)", "Moderado (7–40)", "Muy alto (�
 
 # ------------------------- Normalización flexible -------------------------
 _def_map = {
-    # entradas
     "ph": "pH",
     "temperatura": "Temperatura (°C)",
     "temperatura (c)": "Temperatura (°C)",
     "temp (°c)": "Temperatura (°C)",
     "temp": "Temperatura (°C)",
-
-    # conductividad
     "conductividad (us/cm)": "Conductividad (μS/cm)",
     "conductividad(us/cm)": "Conductividad (μS/cm)",
     "conductividad (s/cm)": "Conductividad (μS/cm)",
     "conductividad": "Conductividad (μS/cm)",
-
-    # oxígeno (variantes frecuentes)
     "oxígeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
     "oxigeno disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
     "oxígeno disuelto (mgl)": "Oxígeno Disuelto (mg/L)",
@@ -92,41 +79,31 @@ _def_map = {
     "do (mg/l)": "Oxígeno Disuelto (mg/L)",
     "od (mg/l)": "Oxígeno Disuelto (mg/L)",
     "o2 disuelto (mg/l)": "Oxígeno Disuelto (mg/L)",
-
-    # turbidez
     "turbidez (ntu)": "Turbidez (NTU)",
     "turbiedad (ntu)": "Turbidez (NTU)",
     "turbidez": "Turbidez (NTU)",
     "turbiedad": "Turbidez (NTU)",
-
-    # objetivo
     "clorofila (μg/l)": TARGET,
     "clorofila (ug/l)": TARGET,
     "clorofila": TARGET,
 }
-
 def _strip_accents(text: str) -> str:
-    """Elimina diacríticos (tildes) para comparar de forma robusta."""
     return ''.join(ch for ch in unicodedata.normalize('NFD', text) if not unicodedata.combining(ch))
-
 def _canon(s: str) -> str:
     s = str(s)
     s = unicodedata.normalize("NFKD", s)
     s = s.replace("µ", "u").replace("μ", "u")
     s = "".join(ch for ch in s if ch.isprintable())
-    s = _strip_accents(s)            # <— quitamos tildes
+    s = _strip_accents(s)
     s = s.lower().strip()
     s = re.sub(r"\s+", " ", s)
     return s
-
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     ren = {}
     for c in df.columns:
         k = _canon(c)
-        # 1) coincidencia directa
         if k in _def_map:
             ren[c] = _def_map[k]; continue
-        # 2) reglas heurísticas
         if "conductividad" in k and ("us/cm" in k or "uscm" in k or "s/cm" in k):
             ren[c] = "Conductividad (μS/cm)"; continue
         if "temperatura" in k or k.startswith("temp"):
@@ -143,7 +120,6 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     out = df.rename(columns=ren)
     out.columns = [col.replace("(mg/l)", "(mg/L)") for col in out.columns]
     return out
-
 def read_csv_robust(path_or_buffer) -> pd.DataFrame:
     for enc in ["utf-8", "utf-8-sig", "latin1", "cp1252"]:
         for sep in [",", ";", "\t", "|"]:
@@ -152,9 +128,7 @@ def read_csv_robust(path_or_buffer) -> pd.DataFrame:
             except Exception:
                 continue
     return pd.read_csv(path_or_buffer, engine="python")
-
 def to_numeric_smart(s: pd.Series) -> pd.Series:
-    """Convierte strings con separadores locales (miles/decimales) a float de forma robusta."""
     s = s.astype(str).str.replace("\u00A0", "", regex=False).str.strip()
     def fix(x: str) -> str:
         x = x.replace(" ", "")
@@ -174,7 +148,6 @@ def _trapezoid(x, a, b, c, d):
     if a < x < b: return (x - a) / (b - a) if b > a else 1.0
     if c < x < d: return (d - x) / (d - c) if d > c else 1.0
     return 0.0
-
 def _right_shoulder(x, a, b):
     x = float(x)
     if x <= a: return 0.0
@@ -182,7 +155,6 @@ def _right_shoulder(x, a, b):
     return (x - a) / (b - a) if b > a else 1.0
 
 DEFAULT_EPS = (0.3, 1.0, 5.0)
-
 def fuzzy_memberships_scalar(x, eps=DEFAULT_EPS):
     e1, e2, e3 = eps
     m0 = _trapezoid(x, 0.0, 0.0, 2.0 - e1, 2.0 + e1)
@@ -192,7 +164,6 @@ def fuzzy_memberships_scalar(x, eps=DEFAULT_EPS):
     v = np.array([m0, m1, m2, m3], dtype=float)
     s = v.sum()
     return v / s if s > 0 else v
-
 def fuzzy_confusion_from_probs(y_true_values, pred_proba, n_classes=4, eps=DEFAULT_EPS):
     M = np.zeros((n_classes, n_classes), dtype=float)
     for t, q in zip(y_true_values, pred_proba):
@@ -201,7 +172,6 @@ def fuzzy_confusion_from_probs(y_true_values, pred_proba, n_classes=4, eps=DEFAU
         q = q / q.sum() if q.sum() > 0 else q
         M += np.outer(mu_t, q)
     return M
-
 def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.2f}"):
     fig, ax = plt.subplots(figsize=(7.2, 6.4))
     n = len(labels)
@@ -220,7 +190,6 @@ def plot_confusion_matrix_pretty_float(cm, labels, title, fmt="{:.2f}"):
     ax.set_xlabel("Etiqueta predicha"); ax.set_ylabel("Etiqueta real")
     fig.tight_layout()
     return fig
-
 def align_proba_to_labels(proba: np.ndarray, classes_pred, labels_order):
     classes_pred = list(classes_pred) if classes_pred is not None else []
     idx_map = {c: i for i, c in enumerate(classes_pred)}
@@ -239,7 +208,6 @@ DEFAULT_DIR_POND = Path("pruebas_piloto")
 DEFAULT_AMSA = DEFAULT_DIR_AMSA / "DATOS AMSA.csv"
 
 st.subheader("📄 Datos AMSA — vista inicial")
-
 amsa_path_input = st.text_input("Ruta a **DATOS AMSA.csv**", value=str(DEFAULT_AMSA))
 amsa_path = Path(amsa_path_input)
 
@@ -252,10 +220,9 @@ if not amsa_path.exists():
 else:
     df_amsa = read_csv_robust(amsa_path)
 
-# Normaliza encabezados
 df_amsa = normalize_columns(df_amsa)
 
-# Renombrado **silencioso** de Oxígeno Disuelto si falta el nombre canónico
+# Renombrado silencioso de Oxígeno Disuelto si falta
 if "Oxígeno Disuelto (mg/L)" not in df_amsa.columns:
     cands = []
     for col in df_amsa.columns:
@@ -267,24 +234,20 @@ if "Oxígeno Disuelto (mg/L)" not in df_amsa.columns:
     if cands:
         df_amsa.rename(columns={cands[0]: "Oxígeno Disuelto (mg/L)"}, inplace=True)
 
-# Vista previa (10 filas) + expander
 st.markdown("**Vista previa (10 primeras filas):**")
 st.table(df_amsa.head(10))
 with st.expander("⬇️ Ver todos los datos AMSA"):
     st.dataframe(df_amsa, use_container_width=True)
 
-# Conversión numérica robusta
 for c in REQ_FEATURES + [TARGET]:
     if c in df_amsa.columns:
         df_amsa[c] = to_numeric_smart(df_amsa[c])
 
-# Validación de columnas
 faltantes = [c for c in REQ_FEATURES + [TARGET] if c not in df_amsa.columns]
 if faltantes:
     st.error(f"Faltan columnas requeridas en AMSA: {faltantes}. Renombra tus columnas o ajusta el mapa en el script.")
     st.stop()
 
-# Limpieza básica
 base = df_amsa.dropna(subset=REQ_FEATURES + [TARGET]).reset_index(drop=True)
 if base.empty:
     st.error("El archivo AMSA no tiene filas válidas tras limpieza.")
@@ -308,24 +271,24 @@ with col_curve:
         ax.set_xlabel("Época"); ax.set_ylabel("Pérdida"); ax.set_title("Curva de entrenamiento")
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
         st.pyplot(fig_loss, use_container_width=True)
-        TRAIN_SCALER = None
-        TRAIN_MODEL = None
-        TRAIN_Y_LOG1P = False
+        TRAIN_SCALER = None; TRAIN_MODEL = None; TRAIN_Y_LOG1P = False
+        # limpiar buffers NN
+        globals().update({"VAL_y_true": None, "VAL_yhat_cont": None})
     else:
-        # --- Split
+        # Split
         X_tr, X_te, y_tr, y_te = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
 
-        # --- Escalado de X
+        # Escalado X
         scaler = StandardScaler()
         X_tr_s = scaler.fit_transform(X_tr)
         X_te_s = scaler.transform(X_te)
 
-        # --- Transformación del objetivo
+        # Transformación y (log1p)
         Y_LOG1P = True
         y_tr_t = np.log1p(y_tr) if Y_LOG1P else y_tr
         y_te_t = np.log1p(y_te) if Y_LOG1P else y_te
 
-        # --- Modelo
+        # Modelo NN
         model = keras.Sequential([
             layers.Input(shape=(X_tr_s.shape[1],)),
             layers.Dense(128, activation="relu"),
@@ -333,27 +296,17 @@ with col_curve:
             layers.Dense(64, activation="relu"),
             layers.Dense(1)
         ])
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+                      loss=keras.losses.Huber(delta=1.0))
+        es = keras.callbacks.EarlyStopping(monitor="val_loss", patience=25, restore_best_weights=True, verbose=0)
+        rl = keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0)
 
-        # --- Pérdida robusta + callbacks
-        model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-            loss=keras.losses.Huber(delta=1.0)
-        )
-        es = keras.callbacks.EarlyStopping(
-            monitor="val_loss", patience=25, restore_best_weights=True, verbose=0
-        )
-        rl = keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", factor=0.5, patience=12, min_lr=1e-6, verbose=0
-        )
+        hist = model.fit(X_tr_s, y_tr_t,
+                         validation_data=(X_te_s, y_te_t),
+                         epochs=400, batch_size=32, verbose=0,
+                         callbacks=[es, rl])
 
-        hist = model.fit(
-            X_tr_s, y_tr_t,
-            validation_data=(X_te_s, y_te_t),
-            epochs=400, batch_size=32, verbose=0,
-            callbacks=[es, rl]
-        )
-
-        # --- Curva
+        # Curva
         fig_loss, ax = plt.subplots()
         ax.plot(hist.history["loss"], label="Pérdida entrenamiento")
         ax.plot(hist.history["val_loss"], label="Pérdida validación")
@@ -363,9 +316,12 @@ with col_curve:
         st.pyplot(fig_loss, use_container_width=True)
 
         # Guardar para inferencia posterior
-        TRAIN_SCALER = scaler
-        TRAIN_MODEL = model
-        TRAIN_Y_LOG1P = Y_LOG1P
+        TRAIN_SCALER = scaler; TRAIN_MODEL = model; TRAIN_Y_LOG1P = Y_LOG1P
+
+        # Predicciones de validación para matriz NN
+        yhat_val_t = model.predict(X_te_s, verbose=0).ravel()
+        yhat_val   = np.expm1(yhat_val_t) if Y_LOG1P else yhat_val_t
+        globals().update({"VAL_y_true": y_te, "VAL_yhat_cont": yhat_val})
 
 with col_note:
     st.info(
@@ -386,51 +342,45 @@ eps_40 = c_eps3.slider("ε alrededor de 40 µg/L", 0.5, 8.0, 2.0, 0.5)
 EPS_TUNED = (eps_2, eps_7, eps_40)
 st.caption("Tip: valores menores reducen el solapamiento Moderado↔Muy alto; si hay mucho ruido, aumenta un poco ε.")
 
-# ------------------------- 3) Matrices difusas (SVM y KNN) — SIN SMOTE / SIN TUNING -------------------------
+# ------------------------- 3) Matrices difusas (SVM/KNN/NN) -------------------------
 st.subheader("🧩 Matrices clasificatorias con datos de AMSA")
 
-# Etiquetas discretas para clasificar
+# Etiquetas discretas p/ clasificar
 X_train, X_test, y_train_num, y_test_num = train_test_split(
     X_all, y_all, test_size=0.20, random_state=42
 )
 y_train_cls = pd.cut(y_train_num, bins=BINS, labels=LABELS, right=False)
 y_test_cls  = pd.cut(y_test_num,  bins=BINS, labels=LABELS, right=False)
 
-# Pipelines simples y deterministas
-svm_clf = make_pipeline(
-    StandardScaler(),
-    SVC(kernel="rbf", probability=True, class_weight="balanced", random_state=42)
-)
-knn_clf = make_pipeline(
-    StandardScaler(),
-    KNeighborsClassifier(n_neighbors=7, weights="distance")
-)
+# Pipelines
+svm_clf = make_pipeline(StandardScaler(), SVC(kernel="rbf", probability=True, class_weight="balanced", random_state=42))
+knn_clf = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=7, weights="distance"))
 
-# Entrenamiento simple
+# Entrenamiento
 svm_clf.fit(X_train, y_train_cls)
 knn_clf.fit(X_train, y_train_cls)
 
-# “Finales” (sin GridSearch)
+# Finales
 svm_final = svm_clf
 knn_final = knn_clf
 
-# Obtener clases internas (último paso del pipeline)
+# Clases internas
 svm_last_name = list(svm_final.named_steps.keys())[-1]
 knn_last_name = list(knn_final.named_steps.keys())[-1]
 svm_classes = svm_final.named_steps[svm_last_name].classes_
 knn_classes = knn_final.named_steps[knn_last_name].classes_
 
-# Probabilidades alineadas a LABELS
+# Probabilidades alineadas
 proba_svm = svm_final.predict_proba(X_test)
 proba_knn = knn_final.predict_proba(X_test)
 proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS)
 proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 
-# Matrices difusas con EPS_TUNED (sliders que ya tienes)
+# Matrices difusas SVM/KNN
 cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4, eps=EPS_TUNED)
 cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4, eps=EPS_TUNED)
 
-c1, c2 = st.columns(2)
+c1, c2, c3 = st.columns(3)
 with c1:
     st.pyplot(
         plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz de confusión con lógica difusa — SVM (AMSA)"),
@@ -444,40 +394,43 @@ with c2:
     )
     st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
 
-# Nota breve (actualizada)
+# --- NUEVO: Matriz difusa de la NN (validación)
+val_true = globals().get("VAL_y_true", None)
+val_pred = globals().get("VAL_yhat_cont", None)
+with c3:
+    if (val_true is not None) and (val_pred is not None):
+        proba_nn = np.vstack([fuzzy_memberships_scalar(v, eps=EPS_TUNED) for v in val_pred])
+        cm_nn_fuzzy = fuzzy_confusion_from_probs(val_true, proba_nn, n_classes=4, eps=EPS_TUNED)
+        st.pyplot(
+            plot_confusion_matrix_pretty_float(cm_nn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — NN (AMSA)"),
+            use_container_width=True
+        )
+        st.caption(f"Suma de pesos (NN): {cm_nn_fuzzy.sum():.2f}")
+    else:
+        st.info("💡 Entrena la NN arriba para habilitar la matriz difusa de **validación (NN)**.")
+
 st.info(
     """
     **Nota:**
     - SVM (RBF) con `class_weight="balanced"` para compensar desbalance.
     - KNN con `n_neighbors=7`, `weights="distance"`.
-    - Los umbrales difusos (ε) son ajustables con los sliders.
+    - Los umbrales difusos (ε) se ajustan con los sliders y aplican a las **tres** matrices.
     """
 )
-
 
 # -----------------------------------------------------------------------------------
 # Helper reutilizable para predecir + matrices + preparar CSV de descarga
 # -----------------------------------------------------------------------------------
 def run_prediction_block(
-    *,                      # exigir argumentos por nombre
-    variant: str,           # "p1" o "p2"
-    default_filename: str,  # "dataframe.csv" o "dataframe2.csv"
-    session_key_df: str,    # "df_pred_export_p1" o "df_pred_export_p2"
-    boton_pred_label: str,  # texto del botón de predicción
-    boton_desc_label: str,  # texto del botón de descarga
-    plot_suffix: str        # "1ª prueba" o "2ª prueba"
+    *, variant: str, default_filename: str, session_key_df: str,
+    boton_pred_label: str, boton_desc_label: str, plot_suffix: str
 ):
     clicked = st.button(boton_pred_label, key=f"btn_pred_{variant}", use_container_width=True)
     if clicked:
-        # 1) Ruta / carga del CSV del estanque
+        # 1) Carga
         default_pond = DEFAULT_DIR_POND / default_filename
-        pond_path_input = st.text_input(
-            f"Ruta a **{default_filename}**",
-            value=str(default_pond),
-            key=f"pond_path_{variant}",
-        )
+        pond_path_input = st.text_input(f"Ruta a **{default_filename}**", value=str(default_pond), key=f"pond_path_{variant}")
         pond_path = Path(pond_path_input)
-
         if not pond_path.exists():
             st.warning(f"No encuentro **{default_filename}** en la ruta indicada. Sube el archivo:")
             up2 = st.file_uploader(f"Sube {default_filename}", type=["csv"], key=f"pond_uploader_{variant}")
@@ -487,28 +440,24 @@ def run_prediction_block(
         else:
             df_pond = read_csv_robust(pond_path)
 
-        # 2) Normalización de encabezados y numéricos
+        # 2) Normalización
         df_pond = normalize_columns(df_pond)
         have_true = TARGET in df_pond.columns
-
         for c in REQ_FEATURES + ([TARGET] if have_true else []):
             if c in df_pond.columns:
                 df_pond[c] = to_numeric_smart(df_pond[c])
-
         df_pond = df_pond.dropna(subset=REQ_FEATURES).reset_index(drop=True)
         if df_pond.empty:
-            st.error("El archivo del estanque no tiene filas válidas tras limpieza.")
-            st.stop()
+            st.error("El archivo del estanque no tiene filas válidas tras limpieza."); st.stop()
 
-        # 3) Probabilidades sobre X del estanque
+        # 3) Probabilidades
         Xp = df_pond[REQ_FEATURES].values
-
         proba_svm_p = svm_final.predict_proba(Xp)
         proba_knn_p = knn_final.predict_proba(Xp)
         proba_svm_p_al = align_proba_to_labels(proba_svm_p, svm_classes, LABELS)
         proba_knn_p_al = align_proba_to_labels(proba_knn_p, knn_classes, LABELS)
 
-        # 4) "Verdad" para la matriz difusa
+        # 4) Verdad (numérica) para matriz difusa
         if have_true:
             y_true_p = pd.to_numeric(df_pond[TARGET], errors="coerce").fillna(0).to_numpy()
             used_proxy = False
@@ -516,7 +465,6 @@ def run_prediction_block(
             tm  = globals().get("TRAIN_MODEL", None)
             ts  = globals().get("TRAIN_SCALER", None)
             ylg = globals().get("TRAIN_Y_LOG1P", False)
-
             if KERAS_OK and (tm is not None) and (ts is not None):
                 Xp_s = ts.transform(Xp)
                 y_pred_t = tm.predict(Xp_s, verbose=0).ravel()
@@ -525,40 +473,63 @@ def run_prediction_block(
                 used_proxy = True
             else:
                 pred_cls = np.argmax(proba_svm_p_al, axis=1)
-                centers  = np.array([1.0, 4.5, 20.0, 60.0])  # centroides aproximados
+                centers  = np.array([1.0, 4.5, 20.0, 60.0])
                 y_true_p = centers[pred_cls]
                 used_proxy = True
 
-        # 5) Matrices difusas (mismo EPS_TUNED)
+        # 5) Matrices difusas SVM/KNN
         cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4, eps=EPS_TUNED)
         cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4, eps=EPS_TUNED)
 
-        cc1, cc2 = st.columns(2)
+        # --- NUEVO: Matriz NN para el estanque
+        tm  = globals().get("TRAIN_MODEL", None)
+        ts  = globals().get("TRAIN_SCALER", None)
+        ylg = globals().get("TRAIN_Y_LOG1P", False)
+        if KERAS_OK and (tm is not None) and (ts is not None):
+            Xp_s = ts.transform(Xp)
+            yhat_nn_t = tm.predict(Xp_s, verbose=0).ravel()
+            yhat_nn   = np.expm1(yhat_nn_t) if ylg else yhat_nn_t
+            proba_nn_p = np.vstack([fuzzy_memberships_scalar(v, eps=EPS_TUNED) for v in yhat_nn])
+            cm_nn_p = fuzzy_confusion_from_probs(y_true_p, proba_nn_p, n_classes=4, eps=EPS_TUNED)
+        else:
+            cm_nn_p = None
+
+        # 6) Mostrar (3 columnas)
+        cc1, cc2, cc3 = st.columns(3)
         with cc1:
             st.pyplot(
-                plot_confusion_matrix_pretty_float(cm_svm_p, LABELS,
-                    f"Matriz de confusión con lógica difusa — SVM (Estanque • {plot_suffix})"),
+                plot_confusion_matrix_pretty_float(
+                    cm_svm_p, LABELS, f"Matriz de confusión con lógica difusa — SVM (Estanque • {plot_suffix})"
+                ),
                 use_container_width=True
             )
             st.caption(f"Suma de pesos (SVM): {cm_svm_p.sum():.2f}")
         with cc2:
             st.pyplot(
-                plot_confusion_matrix_pretty_float(cm_knn_p, LABELS,
-                    f"Matriz de confusión con lógica difusa — KNN (Estanque • {plot_suffix})"),
+                plot_confusion_matrix_pretty_float(
+                    cm_knn_p, LABELS, f"Matriz de confusión con lógica difusa — KNN (Estanque • {plot_suffix})"
+                ),
                 use_container_width=True
             )
             st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
+        with cc3:
+            if cm_nn_p is not None:
+                st.pyplot(
+                    plot_confusion_matrix_pretty_float(
+                        cm_nn_p, LABELS, f"Matriz de confusión con lógica difusa — NN (Estanque • {plot_suffix})"
+                    ),
+                    use_container_width=True
+                )
+                st.caption(f"Suma de pesos (NN): {cm_nn_p.sum():.2f}")
+            else:
+                st.info("NN no entrenada o no disponible.")
 
-        if used_proxy and not have_true:
+        if not have_true and used_proxy:
             st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
 
         st.success("Listo. Matrices del estanque generadas.")
 
-        # ========= Predicciones continuas para exportar =========
-        tm  = globals().get("TRAIN_MODEL", None)
-        ts  = globals().get("TRAIN_SCALER", None)
-        ylg = globals().get("TRAIN_Y_LOG1P", False)
-
+        # 7) Predicciones continuas para exportar
         if KERAS_OK and (tm is not None) and (ts is not None):
             Xp_s = ts.transform(Xp)
             yhat_t = tm.predict(Xp_s, verbose=0).ravel()
@@ -566,17 +537,15 @@ def run_prediction_block(
         else:
             centers = np.array([1.0, 4.5, 20.0, 60.0])
             yhat = proba_svm_p_al @ centers
-
         yhat = np.clip(yhat, 0.0, None)
 
-        # DataFrame a exportar → session_state
         df_pred_export = df_pond.copy()
         df_pred_export["Clorofila_predicha (μg/L)"] = yhat
         st.session_state[session_key_df] = df_pred_export
 
-    # ========= Botón de descarga (si ya hay predicciones) =========
+    # 8) Botón de descarga
     df_pred_ready = st.session_state.get(session_key_df)
-    cdl = st.columns(2)[1]   # botón al lado derecho
+    cdl = st.columns(2)[1]
     with cdl:
         if isinstance(df_pred_ready, pd.DataFrame) and not df_pred_ready.empty:
             st.download_button(
@@ -589,14 +558,10 @@ def run_prediction_block(
             )
         else:
             st.download_button(
-                boton_desc_label,
-                data=b"",
-                disabled=True,
+                boton_desc_label, data=b"", disabled=True,
                 help="Primero genera las predicciones con el botón correspondiente.",
-                use_container_width=True,
-                key=f"dl_{variant}"
+                use_container_width=True, key=f"dl_{variant}"
             )
-
 
 # ------------------------- 4) Predicciones con datos del estanque -------------------------
 st.subheader("🧪 Predicción de clorofila con datos del estanque")
@@ -623,7 +588,6 @@ run_prediction_block(
     plot_suffix="2ª prueba"
 )
 
-
 # ============================== 
 # Botón centrado: Ecuación aproximada de la NN
 # ==============================
@@ -634,72 +598,38 @@ with c_mid:
     gen_eq = st.button("🧮 Generar ecuación aproximada del modelo (NN)", use_container_width=True, key="btn_eq_nn")
 
     if gen_eq:
-        # Verificar que la NN esté disponible (se entrena en la sección de la curva)
         if not (KERAS_OK and (TRAIN_MODEL is not None) and (TRAIN_SCALER is not None)):
             st.warning("La red neuronal no está disponible. Entrena primero (sección 'Análisis de la regresión del modelo').")
         else:
-            # 1) Construir dataset para aproximar la NN (usar todas las filas válidas del set AMSA 'base')
             X_df = base[REQ_FEATURES].copy()
             X_np = X_df.values
-
-            # 2) Predicciones de la NN (en unidades originales de clorofila)
             X_s = TRAIN_SCALER.transform(X_np)
             y_nn_t = TRAIN_MODEL.predict(X_s, verbose=0).ravel()
-            y_nn = np.expm1(y_nn_t) if TRAIN_Y_LOG1P else y_nn_t  # deshacer log1p si aplica
+            y_nn = np.expm1(y_nn_t) if TRAIN_Y_LOG1P else y_nn_t
 
-            # 3) Ajustar un modelo lineal (Ridge) que imite a la NN en el espacio original
             from sklearn.linear_model import Ridge
             from sklearn.metrics import r2_score
-
             reg = Ridge(alpha=1.0, fit_intercept=True, random_state=42)
             reg.fit(X_np, y_nn)
-
             y_lin = reg.predict(X_np)
             r2 = r2_score(y_nn, y_lin)
 
-            # 4) Construir la ecuación en LaTeX (variables en negrita y cursiva)
-            #    Mapeo de nombres de columnas -> símbolos cortos
-            sym_map = {
-                "pH": r"\mathrm{pH}",
-                "Temperatura (°C)": r"T",
-                "Conductividad (μS/cm)": r"EC",
-                "Oxígeno Disuelto (mg/L)": r"DO",
-                "Turbidez (NTU)": r"t",
-            }
-
-            intercept = reg.intercept_
-            coefs = reg.coef_
-
-            # Términos tipo  +a_i * x_i   con formato +- y 4 cifras significativas
+            sym_map = {"pH": r"\mathrm{pH}", "Temperatura (°C)": r"T", "Conductividad (μS/cm)": r"EC",
+                       "Oxígeno Disuelto (mg/L)": r"DO", "Turbidez (NTU)": r"t"}
+            intercept = reg.intercept_; coefs = reg.coef_
             terms = []
             for coef, col in zip(coefs, REQ_FEATURES):
                 sym = sym_map.get(col, col.replace(" ", r"\ "))
                 terms.append(f"{coef:+.4g}\\,\\boldsymbol{{\\mathit{{{sym}}}}}")
-
-            # Armar ecuación completa
-            eq_ltx = (
-                r"\boldsymbol{\mathit{\hat{y}}}"
-                r" = "
-                f"{intercept:.4g} "
-                + " ".join(terms)
-                + r"\quad\text{[}\mu\text{g/L]}"
-            )
-
-            # 5) Mostrar ecuación centrada y métrica de ajuste
+            eq_ltx = (r"\boldsymbol{\mathit{\hat{y}}}" r" = " f"{intercept:.4g} " + " ".join(terms) + r"\quad\text{[}\mu\text{g/L]}")
             st.latex(eq_ltx)
             st.caption(f"Aproximación lineal de la NN sobre datos AMSA.  $R^2$ con la NN: **{r2:.3f}**.")
-            
-            st.write("")
-
-            # Nota con definiciones (Markdown + LaTeX inline)
             st.info(
-                    "**Definición de variables:**\n"
-                    "- $\\hat{y}$: Valor predicho o estimado por el modelo.\n"
-                    "- $\\mathrm{pH}$: Potencial de Hidrógeno.\n"
-                    "- $\\mathbf{T}$: Temperatura $(^{\\circ}\\!C)$\n"
-                    "- $\\mathbf{EC}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
-                    "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
-                    "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
-                )
-
-
+                "**Definición de variables:**\n"
+                "- $\\hat{y}$: Valor predicho o estimado por el modelo.\n"
+                "- $\\mathrm{pH}$: Potencial de Hidrógeno.\n"
+                "- $\\mathbf{T}$: Temperatura $(^{\\circ}\\!C)$\n"
+                "- $\\mathbf{EC}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
+                "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
+                "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
+            )
