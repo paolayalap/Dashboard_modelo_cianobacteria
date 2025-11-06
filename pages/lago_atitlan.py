@@ -672,6 +672,7 @@ with c_mid:
             )
 
 
+
 # ------------------------- 5) Gráfica Clorofila vs Ficocianina -------------------------
 st.divider()
 st.subheader("🌿 Relación entre Clorofila y Ficocianina (CEA + AMSA)")
@@ -688,18 +689,51 @@ if not DATA_CEA_AMSA.exists():
 else:
     df_cya = read_csv_robust(DATA_CEA_AMSA)
 
+# Normaliza encabezados como en el resto de la app
 df_cya = normalize_columns(df_cya)
 
-# Detectar columnas de clorofila y ficocianina
-cand_chla = [c for c in df_cya.columns if re.search("clorofila|chlorophyll", _canon(c))]
-cand_pcy  = [c for c in df_cya.columns if re.search("ficocianina|phycocyanin", _canon(c))]
+# --- Detectar columnas de clorofila y ficocianina (robusto + fallback manual) ---
+def _is_chla(k: str) -> bool:
+    k = _canon(k)
+    return any(pat in k for pat in [
+        "clorofila", "chlorophyll", "chl a", "chl-a", "chla", "chl_a", "cl a", "cla"
+    ])
+
+def _is_pcy(k: str) -> bool:
+    k = _canon(k)
+    # evitar confundir pH con "pc"
+    if k in ("ph", "p h"):
+        return False
+    return any(pat in k for pat in [
+        "ficocianina", "phycocyanin", "phyco", "pcy", "pc", "phycocyanina", "rfu"
+    ])
+
+cand_chla = [c for c in df_cya.columns if _is_chla(c)]
+# si tu TARGET coincide, úsalo como primera opción
+if TARGET in df_cya.columns and TARGET not in cand_chla:
+    cand_chla.insert(0, TARGET)
+cand_pcy  = [c for c in df_cya.columns if _is_pcy(c)]
 
 if not cand_chla or not cand_pcy:
-    st.error("No se encontraron columnas de **clorofila** y **ficocianina** en el archivo.")
-    st.stop()
+    st.warning("No pude detectar automáticamente las columnas. Elige manualmente:")
+    # solo columnas numéricas como opciones
+    numeric_cols = [c for c in df_cya.columns if pd.to_numeric(df_cya[c], errors="coerce").notna().sum() > 0]
 
-col_chla = cand_chla[0]
-col_pcy  = cand_pcy[0]
+    col_sel1, col_sel2 = st.columns(2)
+    with col_sel1:
+        idx_chla = numeric_cols.index(TARGET) if TARGET in numeric_cols else 0
+        col_chla = st.selectbox("Columna de **Clorofila**", options=numeric_cols, index=idx_chla)
+    with col_sel2:
+        # intentar adivinar ficocianina por nombre
+        default_pcy = 0
+        for i, g in enumerate(numeric_cols):
+            if _is_pcy(g):
+                default_pcy = i
+                break
+        col_pcy = st.selectbox("Columna de **Ficocianina**", options=numeric_cols, index=default_pcy)
+else:
+    col_chla = cand_chla[0]
+    col_pcy  = cand_pcy[0]
 
 # Conversión numérica y eliminación de negativos
 df_cya[col_chla] = to_numeric_smart(df_cya[col_chla])
@@ -709,12 +743,23 @@ mask_valid = (df_cya[col_chla] >= 0) & (df_cya[col_pcy] >= 0)
 df_cya = df_cya.loc[mask_valid].dropna(subset=[col_chla, col_pcy])
 
 if df_cya.empty:
-    st.warning("No hay datos válidos después de eliminar valores negativos o nulos.")
+    st.warning("No hay datos válidos después de eliminar negativos/nulos.")
 else:
     fig, ax = plt.subplots(figsize=(7, 5))
-    ax.scatter(df_cya[col_chla], df_cya[col_pcy], alpha=0.6, s=30, color="#2ca25f", edgecolor="white")
+    ax.scatter(df_cya[col_chla], df_cya[col_pcy], alpha=0.6, s=30, edgecolor="white")
     ax.set_xlabel("Clorofila (μg/L)")
-    ax.set_ylabel("Ficocianina (μg/L)")
+    ax.set_ylabel("Ficocianina (unidades originales)")
     ax.set_title("Relación entre Clorofila y Ficocianina (DATOS CEA + AMSA)")
     ax.grid(True, linestyle="--", alpha=0.5)
     st.pyplot(fig, use_container_width=True)
+
+    # (Opcional) Correlación de Pearson
+    try:
+        from scipy.stats import pearsonr
+        x = df_cya[col_chla].to_numpy(dtype=float)
+        y = df_cya[col_pcy].to_numpy(dtype=float)
+        if len(x) > 2:
+            r, p = pearsonr(x, y)
+            st.caption(f"Correlación de Pearson: r = {r:.3f} (p = {p:.3g}).")
+    except Exception:
+        pass
