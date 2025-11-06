@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit: Visualización CEA + AMSA + Entrenamiento + Fuzzy Confusion (SVM/KNN)
+# Streamlit: Visualización CEA + AMSA + Entrenamiento + Fuzzy Confusion (SVM/KNN/NN)
 # Modelo entrenado con "DATOS CEA Y AMSA.csv" y predicción para datos del estanque
 # ============================================
 
@@ -33,6 +33,10 @@ TRAIN_SCALER = None
 TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
 
+# --- NUEVO: buffers para la matriz NN de validación ---
+VAL_y_true = None        # y real (numérica) en validación de la NN
+VAL_yhat_cont = None     # predicción continua de la NN en validación
+
 # para el CSV de descarga
 if "df_pred_export" not in st.session_state:
     st.session_state.df_pred_export = None
@@ -40,7 +44,7 @@ if "df_pred_export" not in st.session_state:
 # ------------------------- Config UI -------------------------
 st.set_page_config(page_title="CEA + AMSA — Tabla, Curva y Matrices Fuzzy", layout="wide")
 st.title("📊 CEA + AMSA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
-st.caption("Se entrena un modelo con **DATOS CEA Y AMSA.csv**. Luego se muestran matrices difusas para SVM y KNN. Finalmente, puedes evaluar con el dataframe del estanque.")
+st.caption("Se entrena un modelo con **DATOS CEA Y AMSA.csv**. Luego se muestran matrices difusas para SVM, KNN y NN. Finalmente, puedes evaluar con el dataframe del estanque.")
 
 # ------------------------- Utilidades -------------------------
 REQ_FEATURES = [
@@ -301,6 +305,10 @@ with col_curve:
         TRAIN_SCALER = None
         TRAIN_MODEL = None
         TRAIN_Y_LOG1P = False
+
+        # Limpia buffers de validación NN
+        globals().update({"VAL_y_true": None, "VAL_yhat_cont": None})
+
     else:
         # --- Split
         X_tr, X_te, y_tr, y_te = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
@@ -357,6 +365,15 @@ with col_curve:
         TRAIN_MODEL = model
         TRAIN_Y_LOG1P = Y_LOG1P
 
+        # --- NUEVO: Predicciones de validación para la matriz difusa de la NN
+        yhat_val_t = model.predict(X_te_s, verbose=0).ravel()
+        yhat_val   = np.expm1(yhat_val_t) if Y_LOG1P else yhat_val_t
+
+        globals().update({
+            "VAL_y_true": y_te,         # y verdadera (numérica) de validación
+            "VAL_yhat_cont": yhat_val,  # predicción continua de la NN en validación
+        })
+
 with col_note:
     st.info(
         """
@@ -366,12 +383,8 @@ with col_note:
         Una curva descendente y estable sugiere buen ajuste sin sobreajuste.
         """
     )
-    #user_note = st.text_area(
-    #    "✍️ Puedes editar esta explicación:",
-    #    value="La pérdida de validación converge sin aumentar, indicando buen generalizado."
-    #)
 
-# ------------------------- 3) Matrices difusas (SVM y KNN) + Nota -------------------------
+# ------------------------- 3) Matrices difusas (SVM, KNN y NN) + Nota -------------------------
 st.subheader("🧩 Matrices con datos del CEA y AMSA")
 
 X_train, X_test, y_train_num, y_test_num = train_test_split(X_all, y_all, test_size=0.20, random_state=42)
@@ -410,6 +423,25 @@ with c2:
     )
     st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
 
+# ----- NUEVO: 3ª matriz difusa usando la validación de la NN -----
+EPS_TUNED = DEFAULT_EPS
+val_true = globals().get("VAL_y_true", None)
+val_pred = globals().get("VAL_yhat_cont", None)
+
+if (val_true is not None) and (val_pred is not None):
+    proba_nn = np.vstack([fuzzy_memberships_scalar(v, eps=EPS_TUNED) for v in val_pred])
+    cm_nn_fuzzy = fuzzy_confusion_from_probs(val_true, proba_nn, n_classes=4, eps=EPS_TUNED)
+
+    st.pyplot(
+        plot_confusion_matrix_pretty_float(
+            cm_nn_fuzzy, LABELS, "Matriz de confusión con lógica difusa — NN (validación)"
+        ),
+        use_container_width=True
+    )
+    st.caption(f"Suma de pesos (NN): {cm_nn_fuzzy.sum():.2f}")
+else:
+    st.info("💡 Entrena la NN arriba para habilitar la matriz difusa de **validación (NN)**.")
+
 st.info(
     """
     **Nota breve:** Estas matrices **difusas** consideran la cercanía a los umbrales (2, 7, 40 μg/L).
@@ -417,17 +449,11 @@ st.info(
     clorofila real está cerca de un límite. Así, penalizan menos las confusiones razonables.
     """
 )
-#user_note2 = st.text_area("✍️ Puedes editar esta explicación de las matrices:",
-#                          value="La matriz difusa suaviza el conteo cerca de 2, 7 y 40 μg/L.")
-
-
 
 # -----------------------------------------------------------------------------------
 # Helper reutilizable para predecir + matrices + preparar CSV de descarga
-# (adaptado a Código 2; usa svm_clf/knn_clf y sus classes ya calculadas)
+# (adaptado; usa svm_clf/knn_clf y sus classes ya calculadas)
 # -----------------------------------------------------------------------------------
-EPS_TUNED = DEFAULT_EPS  # usa el mismo EPS de tus funciones difusas
-
 def run_prediction_block(
     *,                      # exigir argumentos por nombre
     variant: str,           # "p1" o "p2"
@@ -499,9 +525,9 @@ def run_prediction_block(
                 y_true_p = centers[pred_cls]
                 used_proxy = True
 
-        # 5) Matrices difusas (mismo EPS_TUNED)
-        cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4, eps=EPS_TUNED)
-        cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4, eps=EPS_TUNED)
+        # 5) Matrices difusas (mismo EPS)
+        cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4, eps=DEFAULT_EPS)
+        cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4, eps=DEFAULT_EPS)
 
         cc1, cc2 = st.columns(2)
         with cc1:
@@ -571,8 +597,6 @@ def run_prediction_block(
                 key=f"dl_{variant}"
             )
 
-
-
 # ------------------------- 4) Predicciones con datos del estanque -------------------------
 st.subheader("🧪 Predicción de clorofila con datos del estanque")
 
@@ -597,7 +621,6 @@ run_prediction_block(
     boton_desc_label="⬇️ Descargar predicciones — 2ª prueba (.csv)",
     plot_suffix="2ª prueba"
 )
-
 
 # ==============================
 # Botón centrado: Ecuación aproximada de la NN
@@ -669,5 +692,3 @@ with c_mid:
                 "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
                 "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
             )
-
-
