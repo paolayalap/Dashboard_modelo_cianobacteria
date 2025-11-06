@@ -1,5 +1,5 @@
 # ==========================================================================
-# Streamlit: CEA + Entrenamiento + Fuzzy Confusion (SVM/KNN)
+# Streamlit: CEA + Entrenamiento + Fuzzy Confusion (SVM/KNN/NN)
 # ==========================================================================
 
 import re, unicodedata
@@ -28,9 +28,13 @@ st.set_page_config(page_title="CEA — Tabla, Curva y Matrices Fuzzy", layout="w
 st.title("📊 CEA — Tabla, Curva de Entrenamiento y Matrices de Confusión Difusas")
 st.caption("Se entrena un modelo con DATOS CEA.csv y se evalúa con dataframe.csv del estanque.")
 
+# --------- Estado global para NN ---------
 TRAIN_SCALER = None
 TRAIN_MODEL = None
 TRAIN_Y_LOG1P = False
+# Buffers para la matriz NN (validación)
+VAL_y_true = None        # y real (numérica) en validación
+VAL_yhat_cont = None     # predicción continua de la NN en validación
 
 if "df_pred_export" not in st.session_state:
     st.session_state.df_pred_export = None
@@ -147,7 +151,6 @@ DEFAULT_EPS = (0.3, 1.0, 5.0)
 # Usa la misma tuerca de suavizado que en tu app base
 EPS_TUNED = DEFAULT_EPS
 
-
 def fuzzy_memberships_scalar(x, eps=DEFAULT_EPS):
     e1, e2, e3 = eps
     m0 = _left_shoulder(x, 2.0 - e1, 2.0 + e1)          # hombro izquierdo para 0–2
@@ -219,7 +222,7 @@ else:
 
 df_cea = normalize_columns(df_cea)
 
-# CORREGIDO: condición bien parentizada para detectar Oxígeno Disuelto
+# Renombrado silencioso de Oxígeno Disuelto si falta
 if "Oxígeno Disuelto (mg/L)" not in df_cea.columns:
     cands = []
     for col in df_cea.columns:
@@ -274,6 +277,8 @@ with col_curve:
         ax.grid(True); ax.legend(); fig_loss.tight_layout()
         st.pyplot(fig_loss, use_container_width=True)
         TRAIN_SCALER = None; TRAIN_MODEL = None; TRAIN_Y_LOG1P = False
+        # Limpia buffers NN
+        VAL_y_true, VAL_yhat_cont = None, None
     else:
         X_tr, X_te, y_tr, y_te = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
 
@@ -318,6 +323,11 @@ with col_curve:
             TRAIN_MODEL = model
             TRAIN_Y_LOG1P = Y_LOG1P
 
+            # ---- NUEVO: guardar validación para matriz NN
+            yhat_val_t = model.predict(X_te_s, verbose=0).ravel()
+            yhat_val   = np.expm1(yhat_val_t) if Y_LOG1P else yhat_val_t
+            VAL_y_true, VAL_yhat_cont = y_te, yhat_val
+
         except Exception:
             st.warning("No se pudo entrenar la red. Se muestra curva sintética.")
             losses = np.linspace(1.0, 0.2, 60) + 0.05*np.random.randn(60)
@@ -329,21 +339,15 @@ with col_curve:
             ax.grid(True); ax.legend(); fig_loss.tight_layout()
             st.pyplot(fig_loss, use_container_width=True)
             TRAIN_SCALER = None; TRAIN_MODEL = None; TRAIN_Y_LOG1P = False
+            VAL_y_true, VAL_yhat_cont = None, None
 
 with col_note:
     st.info(
-    """**Nota: **Durante las primeras épocas, el modelo muestra pérdidas altas que descienden rápidamente,
-indicando que está aprendiendo los patrones iniciales de los datos.
-
-Entre las épocas 50 y 200, la disminución de la pérdida es más gradual y las curvas de
-entrenamiento y validación permanecen cercanas, lo que evidencia buena generalización
-(sin sobreajuste notable).
-
-Finalmente, a partir de la época 200, ambas curvas se estabilizan alrededor de una pérdida
-baja (≈ 0.015–0.018), señal de que el modelo ha alcanzado la convergencia y ya no mejora de
-forma significativa."""
+    """**Nota:** Durante las primeras épocas, el modelo muestra pérdidas altas que descienden rápidamente,
+indicando aprendizaje de patrones básicos. Entre épocas 50–200 la caída es gradual y las curvas
+se mantienen cercanas (buena generalización). Al final (≥200) ambas se estabilizan ≈0.015–0.018,
+indicando convergencia."""
 )
-
 
 # ------------------------- 3) Matrices clasificatorias -------------------------
 st.subheader("🧩 Matrices clasificatorias con datos de CEA")
@@ -389,10 +393,11 @@ knn_classes = knn_clf.named_steps[list(knn_clf.named_steps.keys())[-1]].classes_
 proba_svm_al = align_proba_to_labels(proba_svm, svm_classes, LABELS)
 proba_knn_al = align_proba_to_labels(proba_knn, knn_classes, LABELS)
 
-cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4)
-cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4)
+cm_svm_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_svm_al, n_classes=4, eps=EPS_TUNED)
+cm_knn_fuzzy = fuzzy_confusion_from_probs(y_test_num, proba_knn_al, n_classes=4, eps=EPS_TUNED)
 
-c1, c2 = st.columns(2)
+# --- NUEVO: matriz NN con validación si existe
+c1, c2, c3 = st.columns(3)
 with c1:
     st.pyplot(plot_confusion_matrix_pretty_float(cm_svm_fuzzy, LABELS, "Matriz difusa — SVM (CEA)"),
               use_container_width=True)
@@ -401,8 +406,17 @@ with c2:
     st.pyplot(plot_confusion_matrix_pretty_float(cm_knn_fuzzy, LABELS, "Matriz difusa — KNN (CEA)"),
               use_container_width=True)
     st.caption(f"Suma de pesos (KNN): {cm_knn_fuzzy.sum():.2f}")
-
-
+with c3:
+    if (VAL_y_true is not None) and (VAL_yhat_cont is not None):
+        proba_nn = np.vstack([fuzzy_memberships_scalar(v, eps=EPS_TUNED) for v in VAL_yhat_cont])
+        cm_nn_fuzzy = fuzzy_confusion_from_probs(VAL_y_true, proba_nn, n_classes=4, eps=EPS_TUNED)
+        st.pyplot(
+            plot_confusion_matrix_pretty_float(cm_nn_fuzzy, LABELS, "Matriz difusa — NN (CEA)"),
+            use_container_width=True
+        )
+        st.caption(f"Suma de pesos (NN): {cm_nn_fuzzy.sum():.2f}")
+    else:
+        st.info("💡 Entrena la NN arriba para habilitar la matriz difusa de **validación (NN)**.")
 
 # -----------------------------------------------------------------------------------
 # Helper reutilizable para predecir + matrices + preparar CSV de descarga (Estanque)
@@ -489,7 +503,21 @@ def run_prediction_block(
         cm_svm_p = fuzzy_confusion_from_probs(y_true_p, proba_svm_p_al, n_classes=4, eps=EPS_TUNED)
         cm_knn_p = fuzzy_confusion_from_probs(y_true_p, proba_knn_p_al, n_classes=4, eps=EPS_TUNED)
 
-        cc1, cc2 = st.columns(2)
+        # --- NUEVO: matriz NN para el estanque (si hay NN entrenada)
+        tm  = globals().get("TRAIN_MODEL", None)
+        ts  = globals().get("TRAIN_SCALER", None)
+        ylg = globals().get("TRAIN_Y_LOG1P", False)
+        if KERAS_OK and (tm is not None) and (ts is not None):
+            Xp_s = ts.transform(Xp).astype(np.float32)
+            yhat_nn_t = tm.predict(Xp_s, verbose=0).ravel()
+            yhat_nn   = np.expm1(yhat_nn_t) if ylg else yhat_nn_t
+            proba_nn_p = np.vstack([fuzzy_memberships_scalar(v, eps=EPS_TUNED) for v in yhat_nn])
+            cm_nn_p = fuzzy_confusion_from_probs(y_true_p, proba_nn_p, n_classes=4, eps=EPS_TUNED)
+        else:
+            cm_nn_p = None
+
+        # 6) Mostrar (3 columnas alineadas)
+        cc1, cc2, cc3 = st.columns(3)
         with cc1:
             st.pyplot(
                 plot_confusion_matrix_pretty_float(
@@ -506,15 +534,23 @@ def run_prediction_block(
                 use_container_width=True
             )
             st.caption(f"Suma de pesos (KNN): {cm_knn_p.sum():.2f}")
+        with cc3:
+            if cm_nn_p is not None:
+                st.pyplot(
+                    plot_confusion_matrix_pretty_float(
+                        cm_nn_p, LABELS, f"Matriz de confusión con lógica difusa — NN (Estanque • {plot_suffix})"
+                    ),
+                    use_container_width=True
+                )
+                st.caption(f"Suma de pesos (NN): {cm_nn_p.sum():.2f}")
+            else:
+                st.info("NN no entrenada o no disponible.")
 
         if used_proxy and not have_true:
             st.caption("ℹ️ Se usó **proxy** de clorofila para la matriz (no había columna de clorofila real).")
         st.success("Listo. Matrices del estanque generadas.")
 
         # ========= Predicciones continuas para exportar =========
-        tm  = globals().get("TRAIN_MODEL", None)
-        ts  = globals().get("TRAIN_SCALER", None)
-        ylg = globals().get("TRAIN_Y_LOG1P", False)
         if KERAS_OK and (tm is not None) and (ts is not None):
             Xp_s  = ts.transform(Xp).astype(np.float32)
             yhat_t = tm.predict(Xp_s, verbose=0).ravel()
@@ -522,7 +558,7 @@ def run_prediction_block(
         else:
             centers = np.array([1.0, 4.5, 20.0, 60.0])
             yhat = proba_svm_p_al @ centers
-            yhat = np.clip(yhat, 0.0, None)
+        yhat = np.clip(yhat, 0.0, None)
 
         # DataFrame a exportar → session_state
         df_pred_export = df_pond.copy()
@@ -551,9 +587,6 @@ def run_prediction_block(
                     use_container_width=True,
                     key=f"dl_{variant}"
                 )
-
-
-
 
 # ------------------------- 4) Estanque -------------------------
 st.subheader("🧪 Predicción de clorofila con datos del estanque")
@@ -622,9 +655,9 @@ with c_mid:
             eq_ltx = (
                 r"\boldsymbol{\mathit{\hat{y}}}"
                 r" = "
-                f"{intercept:.4g} " + " ".join(terms) + r"\quad\text{[}\mu\text{g/L]}"
+                f"{intercept:.4g} " + " ".join(terms) + r"\quad\text{[}\mu\text{g/L]}",
             )
-            st.latex(eq_ltx)
+            st.latex(eq_ltx[0])
             st.caption(f"Aproximación lineal de la NN sobre datos CEA. $R^2$ con la NN: **{r2:.3f}**.")
             st.write("")
             st.info(
@@ -636,3 +669,4 @@ with c_mid:
                 "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
                 "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
             )
+
