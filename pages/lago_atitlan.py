@@ -676,63 +676,63 @@ with c_mid:
 
 
 # ------------------------- 5) Gráfica Clorofila vs Ficocianina (escala logarítmica) -------------------------
-st.divider()
-st.subheader("🌿 Relación entre Clorofila y Ficocianina (CEA) — Escala logarítmica")
+#st.divider()
+#st.subheader("🌿 Relación entre Clorofila y Ficocianina (CEA) — Escala logarítmica")
 
-DATA_CEA = Path("datasets_lagos/DATOS CEA.csv")
+#DATA_CEA = Path("datasets_lagos/DATOS CEA.csv")
 
-if not DATA_CEA.exists():
-    st.warning("No encuentro **DATOS CEA.csv** en datasets_lagos. Sube el archivo:")
-    up_c = st.file_uploader("Sube DATOS CEA.csv", type=["csv"])
-    if up_c is None:
-        st.stop()
-    df_cya = read_csv_robust(up_c)
-else:
-    df_cya = read_csv_robust(DATA_CEA)
+#if not DATA_CEA.exists():
+#    st.warning("No encuentro **DATOS CEA.csv** en datasets_lagos. Sube el archivo:")
+#    up_c = st.file_uploader("Sube DATOS CEA.csv", type=["csv"])
+#    if up_c is None:
+#        st.stop()
+#    df_cya = read_csv_robust(up_c)
+#else:
+#    df_cya = read_csv_robust(DATA_CEA)
 
 # Normalización de encabezados
-df_cya = normalize_columns(df_cya)
+#df_cya = normalize_columns(df_cya)
 
 # Detección automática
-def _find_col(df, keywords):
-    for c in df.columns:
-        k = _canon(c)
-        if all(kw in k for kw in keywords):
-            return c
-    return None
+#def _find_col(df, keywords):
+#    for c in df.columns:
+#        k = _canon(c)
+#        if all(kw in k for kw in keywords):
+#            return c
+#    return None
 
-col_chla_auto = _find_col(df_cya, ["clorofila"]) or _find_col(df_cya, ["chlorophyll"])
-col_pcy_auto  = _find_col(df_cya, ["ficocianina"]) or _find_col(df_cya, ["phycocyanin"])
+#col_chla_auto = _find_col(df_cya, ["clorofila"]) or _find_col(df_cya, ["chlorophyll"])
+#col_pcy_auto  = _find_col(df_cya, ["ficocianina"]) or _find_col(df_cya, ["phycocyanin"])
 
-if not col_chla_auto or not col_pcy_auto:
-    st.info("No pude detectar automáticamente las columnas. Elige manualmente:")
-    options = list(df_cya.columns)
-    idx_chl = options.index("Clorofila (μg/L)")   if "Clorofila (μg/L)"   in options else 0
-    idx_pcy = options.index("Ficocianina (μg/L)") if "Ficocianina (μg/L)" in options else 0
-    col_chla = st.selectbox("Columna de **Clorofila**", options, index=idx_chl)
-    col_pcy  = st.selectbox("Columna de **Ficocianina**", options, index=idx_pcy)
-else:
-    col_chla, col_pcy = col_chla_auto, col_pcy_auto
+#if not col_chla_auto or not col_pcy_auto:
+#    st.info("No pude detectar automáticamente las columnas. Elige manualmente:")
+#    options = list(df_cya.columns)
+#    idx_chl = options.index("Clorofila (μg/L)")   if "Clorofila (μg/L)"   in options else 0
+#    idx_pcy = options.index("Ficocianina (μg/L)") if "Ficocianina (μg/L)" in options else 0
+#    col_chla = st.selectbox("Columna de **Clorofila**", options, index=idx_chl)
+#    col_pcy  = st.selectbox("Columna de **Ficocianina**", options, index=idx_pcy)
+#else:
+#    col_chla, col_pcy = col_chla_auto, col_pcy_auto
 
 # Conversión y filtrado
-df_plot = df_cya[[col_chla, col_pcy]].copy()
-df_plot[col_chla] = to_numeric_smart(df_plot[col_chla])
-df_plot[col_pcy]  = to_numeric_smart(df_plot[col_pcy])
-df_plot = df_plot[(df_plot[col_chla] > 0) & (df_plot[col_pcy] > 0)].dropna()
+#df_plot = df_cya[[col_chla, col_pcy]].copy()
+#df_plot[col_chla] = to_numeric_smart(df_plot[col_chla])
+#df_plot[col_pcy]  = to_numeric_smart(df_plot[col_pcy])
+#df_plot = df_plot[(df_plot[col_chla] > 0) & (df_plot[col_pcy] > 0)].dropna()
 
 # Limita rango de clorofila a 0–10 μg/L para ver mejor los detalles
-df_plot = df_plot[df_plot[col_chla] <= 10]
+#df_plot = df_plot[df_plot[col_chla] <= 10]
 
-if df_plot.empty:
-    st.warning("No hay datos válidos (tras eliminar ceros/negativos y filtrar a 0–10 μg/L).")
-else:
-    fig, ax = plt.subplots(figsize=(7, 5))
-    sc = ax.scatter(df_plot[col_chla], df_plot[col_pcy],
-                    alpha=0.6, s=30, edgecolor="white")
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Clorofila (μg/L) — escala log")
-    ax.set_ylabel("Ficocianina (μg/L) — escala log")
-    ax.set_title("Relación entre Clorofila y Ficocianina (DATOS CEA) — Escala logarítmica")
-    ax.grid(True, which="both", linestyle="--", alpha=0.5)
-    st.pyplot(fig, use_container_width=True)
+#if df_plot.empty:
+#    st.warning("No hay datos válidos (tras eliminar ceros/negativos y filtrar a 0–10 μg/L).")
+#else:
+#    fig, ax = plt.subplots(figsize=(7, 5))
+#    sc = ax.scatter(df_plot[col_chla], df_plot[col_pcy],
+#                    alpha=0.6, s=30, edgecolor="white")
+#    ax.set_xscale("log")
+#    ax.set_yscale("log")
+#    ax.set_xlabel("Clorofila (μg/L) — escala log")
+#    ax.set_ylabel("Ficocianina (μg/L) — escala log")
+#    ax.set_title("Relación entre Clorofila y Ficocianina (DATOS CEA) — Escala logarítmica")
+#    ax.grid(True, which="both", linestyle="--", alpha=0.5)
+#    st.pyplot(fig, use_container_width=True)
