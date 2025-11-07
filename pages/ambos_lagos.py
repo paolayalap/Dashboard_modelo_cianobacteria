@@ -617,9 +617,9 @@ st.subheader("🧪 Predicción de clorofila con datos del estanque")
 # Bloque 1: 1ª prueba (dataframe.csv)
 run_prediction_block(
     variant="p1",
-    default_filename="dataframe.csv",
+    default_filename="dataframe1.csv",
     session_key_df="df_pred_export_p1",
-    boton_pred_label="🔮 Predecir — 1ª prueba (dataframe.csv)",
+    boton_pred_label="🔮 Predecir — 1ª prueba (dataframe1.csv)",
     boton_desc_label="⬇️ Descargar predicciones — 1ª prueba (.csv)",
     plot_suffix="1ª prueba"
 )
