@@ -62,21 +62,6 @@ Este proyecto propone una herramienta:
 
 ---
 
-## 🧩 Estructura del repositorio
-
-```bash
-📂 .devcontainer       # Configuración de entorno en Codespaces / desarrollo
-📂 .streamlit          # Configuración visual y parámetros de la app
-📂 arduino             # Código para la red de sensores y adquisición de datos
-📂 datasets_lagos      # Datasets institucionales (CEA, AMSA, combinados)
-📂 imagenes            # Gráficas, figuras y recursos visuales
-📂 pages               # Páginas internas de la aplicación Streamlit
-📂 pruebas_piloto      # Datos del estanque experimental en UVG
-📄 streamlit_app.py    # Archivo principal de la app en Streamlit
-📄 requirements.txt    # Dependencias del proyecto
-📄 runtime.txt         # Configuración para despliegue
-📄 README.md           # Este archivo
-´´´
 
 
 # 🧠 ¿Qué hace la herramienta?
@@ -173,4 +158,18 @@ Los resultados confirman que la red neuronal es una herramienta prometedora para
 
 
 
+## 🧩 Estructura del repositorio
+
+```bash
+📂 .devcontainer       # Configuración de entorno en Codespaces / desarrollo
+📂 .streamlit          # Configuración visual y parámetros de la app
+📂 arduino             # Código para la red de sensores y adquisición de datos
+📂 datasets_lagos      # Datasets institucionales (CEA, AMSA, combinados)
+📂 imagenes            # Gráficas, figuras y recursos visuales
+📂 pages               # Páginas internas de la aplicación Streamlit
+📂 pruebas_piloto      # Datos del estanque experimental en UVG
+📄 streamlit_app.py    # Archivo principal de la app en Streamlit
+📄 requirements.txt    # Dependencias del proyecto
+📄 runtime.txt         # Configuración para despliegue
+📄 README.md           # Este archivo
 
