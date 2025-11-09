@@ -1,6 +1,6 @@
 <p align="center">
   <!-- Reemplaza las rutas por las de tus imágenes si ya las tienes en /imagenes -->
-  <img src="imagenes/uvg_logo.png" alt="UVG" height="70">
+  <img src="imagenes/uvg_logo.jpg" alt="UVG" height="70">
   <img src="imagenes/ing_logo.png" alt="Facultad de Ingeniería" height="70">
 </p>
 
@@ -17,7 +17,7 @@
   <strong>Paola Andrea Ayala Pineda</strong>
   <br>
   Asesor:
-  <strong>[Luis Alberto Rivera Estrada]</strong>
+  <strong>Luis Alberto Rivera Estrada</strong>
   <br>
   Departamento de Ingeniería Electrónica, Mecatrónica y Biomédica — Universidad del Valle de Guatemala
 </p>
@@ -32,12 +32,11 @@
 
 ---
 
-## 🌿 Herramienta de Predicción de Clorofila
-
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://Dashboard_modelo_cianobacteria.streamlit.app/)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/streamlit/app-starter-kit?quickstart=1)
 
 ---
+
 
 ## 📘 Descripción general
 
@@ -77,5 +76,38 @@ Este proyecto propone una herramienta:
 📄 requirements.txt    # Dependencias del proyecto
 📄 runtime.txt         # Configuración para despliegue
 📄 README.md           # Este archivo
+
+
+
+# 🧠 ¿Qué hace la herramienta?
+
+📥 **Carga datasets propios o incluidos en el repositorio.**
+
+🧽 **Aplica limpieza, normalización y filtrado de datos.**
+
+🤖 **Entrena y prueba distintos modelos de Machine Learning para estimar clorofila-a.**
+
+---
+
+## 📊 Muestra métricas como:
+
+- Coeficiente de determinación (**R²**)  
+- Error medio  
+- **Matrices de confusión** y variantes con **lógica difusa**
+
+---
+
+## 🔁 Compara el desempeño entre:
+
+- Datos de instituciones (**lagos reales**)  
+- Datos experimentales del **estanque piloto**
+
+---
+
+## 🌐 Visualización intuitiva
+
+Permite visualizar de forma sencilla si un conjunto de parámetros medidos sugiere **mayor o menor presencia de clorofila**, facilitando la interpretación de resultados tanto en datos históricos como en mediciones en tiempo real.
+
+
 
 
