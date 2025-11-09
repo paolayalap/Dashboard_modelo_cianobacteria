@@ -1,6 +1,6 @@
 <p align="center">
   <!-- Reemplaza las rutas por las de tus imágenes si ya las tienes en /imagenes -->
-  <img src="imagenes/uvg_logo.jpg" alt="UVG" height="70">
+  <img src="imagenes/logo_UVG.jpg" alt="UVG" height="70">
   <img src="imagenes/ing_logo.png" alt="Facultad de Ingeniería" height="70">
 </p>
 
@@ -107,6 +107,69 @@ Este proyecto propone una herramienta:
 ## 🌐 Visualización intuitiva
 
 Permite visualizar de forma sencilla si un conjunto de parámetros medidos sugiere **mayor o menor presencia de clorofila**, facilitando la interpretación de resultados tanto en datos históricos como en mediciones en tiempo real.
+
+
+# 🔬 Resultados del modelo de red neuronal (CEA + AMSA)
+
+---
+
+## 📈 Resumen general
+
+Se entrenaron modelos con datos de **CEA**, **AMSA** y su combinación.  
+Los mejores resultados se obtuvieron con un **modelo de red neuronal profunda**, logrando:
+
+- Excelente capacidad de **generalización**  
+- Ajuste adecuado para estimar **clorofila-a** con parámetros físico-químicos medidos en campo  
+
+Estos resultados demuestran el potencial del sistema para **monitorear la calidad del agua de manera económica y accesible**, integrando **inteligencia artificial y sensores de bajo costo**.
+
+---
+
+## 🧮 Ecuación de aproximación lineal
+
+<p align="center">
+  <img src="imagenes/EC3.jpg" alt="Ecuación de aproximación" width="500">
+</p>
+
+> Aproximación lineal de la red neuronal sobre datos CEA + AMSA.  
+> Coeficiente de determinación: \( R^2 = 0.938 \)
+
+---
+
+## 📉 Curva de entrenamiento
+
+<p align="center">
+  <img src="imagenes/curvares.png" alt="Curva de entrenamiento" width="600">
+</p>
+
+**Descripción:**  
+Durante las primeras épocas, la pérdida disminuye rápidamente indicando que el modelo aprende patrones iniciales.  
+Posteriormente, la pérdida se estabiliza alrededor de un valor bajo, reflejando una buena generalización y ausencia de sobreajuste.
+
+---
+
+## 🧠 Matriz de confusión difusa
+
+<p align="center">
+  <img src="imagenes/matrizres.png" alt="Matriz de confusión difusa" width="600">
+</p>
+
+**Interpretación:**  
+El modelo muestra alta precisión para las clases “Muy bajo” y “Muy alto”, con ligeras confusiones en los rangos intermedios, lo que indica una correcta discriminación de concentraciones extremas de clorofila-a.  
+El uso de **lógica difusa** permite suavizar los límites entre categorías y representar mejor la naturaleza continua de las concentraciones.
+
+---
+
+## 🧭 Conclusión
+
+Los resultados confirman que la red neuronal es una herramienta prometedora para la **estimación indirecta de cianobacterias** en cuerpos de agua, combinando datos medidos por sensores físicos con técnicas de aprendizaje automático.
+
+---
+
+📁 **Archivos visuales incluidos:**
+- `imagenes/EC3.jpg` → Ecuación de aproximación lineal  
+- `imagenes/curvares.png` → Curva de entrenamiento  
+- `imagenes/matrizres.png` → Matriz de confusión con lógica difusa
 
 
 
