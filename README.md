@@ -1,4 +1,38 @@
-# 🌿 Herramienta de Predicción de Clorofila
+<p align="center">
+  <!-- Reemplaza las rutas por las de tus imágenes si ya las tienes en /imagenes -->
+  <img src="imagenes/uvg_logo.png" alt="UVG" height="70">
+  <img src="imagenes/ing_logo.png" alt="Facultad de Ingeniería" height="70">
+</p>
+
+<h1 align="center">
+  Diseño de un sistema de detección de cianobacteria en cuerpos de agua por medio de aprendizaje automático.
+</h1>
+
+<h3 align="center">
+  Trabajo de Graduación — Ingeniería Mecatrónica
+</h3>
+
+<p align="center">
+  Autora:
+  <strong>Paola Andrea Ayala Pineda</strong>
+  <br>
+  Asesor:
+  <strong>[Luis Alberto Rivera Estrada]</strong>
+  <br>
+  Departamento de Ingeniería Electrónica, Mecatrónica y Biomédica — Universidad del Valle de Guatemala
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/status-en%20desarrollo-brightgreen" alt="Status">
+  <img src="https://img.shields.io/badge/python-3.x-blue" alt="Python">
+  <img src="https://img.shields.io/badge/streamlit-app-red" alt="Streamlit">
+  <img src="https://img.shields.io/badge/machine%20learning-active-purple" alt="ML">
+  <img src="https://img.shields.io/badge/hardware-Arduino%20MEGA-orange" alt="Arduino">
+</p>
+
+---
+
+## 🌿 Herramienta de Predicción de Clorofila
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://Dashboard_modelo_cianobacteria.streamlit.app/)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/streamlit/app-starter-kit?quickstart=1)
