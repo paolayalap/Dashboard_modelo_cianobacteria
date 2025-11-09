@@ -9,7 +9,7 @@ Los datos fueron obtenidos mediante la **boya multisensorial** con sensores de p
 
 | Archivo | Descripción |
 |----------|-------------|
-| `dataframe.csv` | Contiene **todos los datos recopilados** en el estanque durante las pruebas. Es el conjunto más completo y representa la base general de mediciones. |
+| `dataframe.csv` | Contiene **todos los datos recopilados** (aproximadamente 5000 registros) en el estanque durante las pruebas. Es el conjunto más completo y representa la base general de mediciones. |
 | `dataframe1.csv` | Contiene **aproximadamente 120 datos seleccionados aleatoriamente** del conjunto principal (`dataframe.csv`). Se utilizó para generar la **predicción de la primera prueba piloto**. |
 | `dataframe2.csv` | Contiene **todos los datos de la segunda prueba piloto**, con un total de **416 registros**, utilizados para validar el desempeño del modelo con nuevas mediciones. |
 
