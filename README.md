@@ -76,7 +76,7 @@ Este proyecto propone una herramienta:
 📄 requirements.txt    # Dependencias del proyecto
 📄 runtime.txt         # Configuración para despliegue
 📄 README.md           # Este archivo
-
+´´´
 
 
 # 🧠 ¿Qué hace la herramienta?
