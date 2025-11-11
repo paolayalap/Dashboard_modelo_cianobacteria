@@ -113,7 +113,7 @@ Estos resultados demuestran el potencial del sistema para **monitorear la calida
 ## 🧮 Ecuación de aproximación lineal
 
 <p align="center">
-  <img src="imagenes/EC3.jpg" alt="Ecuación de aproximación" width="500">
+  <img src="imagenes/EC.jpg" alt="Ecuación de aproximación" width="500">
 </p>
 
 > Aproximación lineal de la red neuronal sobre datos CEA + AMSA.  
@@ -152,7 +152,7 @@ Los resultados confirman que la red neuronal es una herramienta prometedora para
 ---
 
 📁 **Archivos visuales incluidos:**
-- `imagenes/EC3.jpg` → Ecuación de aproximación lineal  
+- `imagenes/EC.jpg` → Ecuación de aproximación lineal  
 - `imagenes/curvares.png` → Curva de entrenamiento  
 - `imagenes/matrizres.png` → Matriz de confusión con lógica difusa
 
