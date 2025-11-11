@@ -644,9 +644,9 @@ with c_mid:
             sym_map = {
                 "pH": r"\mathrm{pH}",
                 "Temperatura (°C)": r"T",
-                "Conductividad (μS/cm)": r"EC",
-                "Oxígeno Disuelto (mg/L)": r"DO",
-                "Turbidez (NTU)": r"t",
+                "Conductividad (μS/cm)": r"CO",
+                "Oxígeno Disuelto (mg/L)": r"OD",
+                "Turbidez (NTU)": r"TU",
             }
             intercept = reg.intercept_
             coefs = reg.coef_
@@ -667,9 +667,9 @@ with c_mid:
                 "- $\\hat{y}$: Valor predicho o estimado por el modelo.\n"
                 "- $\\mathrm{pH}$: Potencial de Hidrógeno.\n"
                 "- $\\mathbf{T}$: Temperatura $(^{\\circ}\\!C)$\n"
-                "- $\\mathbf{EC}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
-                "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
-                "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
+                "- $\\mathbf{CO}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
+                "- $\\mathbf{OD}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
+                "- $\\boldsymbol{\\mathit{TU}}$: Turbidez $(\\mathrm{NTU})$"
             )
 
 
