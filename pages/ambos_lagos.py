@@ -673,9 +673,9 @@ with c_mid:
             sym_map = {
                 "pH": r"\mathrm{pH}",
                 "Temperatura (°C)": r"T",
-                "Conductividad (μS/cm)": r"EC",
-                "Oxígeno Disuelto (mg/L)": r"DO",
-                "Turbidez (NTU)": r"t",
+                "Conductividad (μS/cm)": r"CO",
+                "Oxígeno Disuelto (mg/L)": r"OD",
+                "Turbidez (NTU)": r"TU",
             }
 
             intercept = reg.intercept_
