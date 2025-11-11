@@ -614,8 +614,8 @@ with c_mid:
             y_lin = reg.predict(X_np)
             r2 = r2_score(y_nn, y_lin)
 
-            sym_map = {"pH": r"\mathrm{pH}", "Temperatura (°C)": r"T", "Conductividad (μS/cm)": r"EC",
-                       "Oxígeno Disuelto (mg/L)": r"DO", "Turbidez (NTU)": r"t"}
+            sym_map = {"pH": r"\mathrm{pH}", "Temperatura (°C)": r"T", "Conductividad (μS/cm)": r"CO",
+                       "Oxígeno Disuelto (mg/L)": r"OD", "Turbidez (NTU)": r"TU"}
             intercept = reg.intercept_; coefs = reg.coef_
             terms = []
             for coef, col in zip(coefs, REQ_FEATURES):
@@ -629,7 +629,7 @@ with c_mid:
                 "- $\\hat{y}$: Valor predicho o estimado por el modelo.\n"
                 "- $\\mathrm{pH}$: Potencial de Hidrógeno.\n"
                 "- $\\mathbf{T}$: Temperatura $(^{\\circ}\\!C)$\n"
-                "- $\\mathbf{EC}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
-                "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
-                "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
+                "- $\\mathbf{CO}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
+                "- $\\mathbf{OD}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
+                "- $\\boldsymbol{\\mathit{TU}}$: Turbidez $(\\mathrm{NTU})$"
             )
