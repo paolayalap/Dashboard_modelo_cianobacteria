@@ -702,7 +702,7 @@ with c_mid:
                 "- $\\hat{y}$: Valor predicho o estimado por el modelo.\n"
                 "- $\\mathrm{pH}$: Potencial de Hidrógeno.\n"
                 "- $\\mathbf{T}$: Temperatura $(^{\\circ}\\!C)$\n"
-                "- $\\mathbf{EC}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
-                "- $\\mathbf{DO}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
-                "- $\\boldsymbol{\\mathit{t}}$: Turbidez $(\\mathrm{NTU})$"
+                "- $\\mathbf{CO}$: Conductividad $(\\mu\\mathrm{S}/\\mathrm{cm})$\n"
+                "- $\\mathbf{OD}$: Oxígeno disuelto $(\\mathrm{mg}/\\mathrm{L})$\n"
+                "- $\\boldsymbol{\\mathit{TU}}$: Turbidez $(\\mathrm{NTU})$"
             )
